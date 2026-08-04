@@ -87,6 +87,37 @@ export interface CacheEntry {
   version: number;
 }
 
+/**
+ * Local-only usage counters.
+ *
+ * Stored in chrome.storage.local and never transmitted. Present so the user
+ * can see what the extension has done, not so anyone can observe them.
+ */
+export interface UsageStats {
+  /** Professor lookups requested, cache hits included. */
+  lookups: number;
+  /** Lookups that resolved to an RMP profile. */
+  matches: number;
+  /** Lookups that found no match. */
+  misses: number;
+  /** Lookups that failed outright. */
+  errors: number;
+  cacheHits: number;
+  badgesShown: number;
+  /** Epoch ms of the first recorded event, so rates can be described. */
+  since: number;
+}
+
+/** A professor whose card the user opened, for the popup's recents list. */
+export interface RecentProfessor {
+  name: string;
+  department: string;
+  overallRating: number | null;
+  numRatings: number;
+  rmpUrl: string;
+  viewedAt: number;
+}
+
 export interface ExtensionSettings {
   autoDetect: boolean;
   showComparison: boolean;

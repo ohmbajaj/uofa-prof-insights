@@ -3,6 +3,16 @@ import type { IncomingMessage, OutgoingMessage } from '@shared/messages';
 import type { ExtensionSettings, ProfessorData } from '@shared/types';
 import { DEFAULT_SETTINGS } from '@shared/constants';
 
+const EMPTY_USAGE = {
+  lookups: 0,
+  matches: 0,
+  misses: 0,
+  errors: 0,
+  cacheHits: 0,
+  badgesShown: 0,
+  since: 0,
+};
+
 /**
  * End-to-end exercise of the content script against the exact UAccess markup
  * supplied for Phase 1: detect -> inject -> message the service worker ->
@@ -101,6 +111,15 @@ function installRuntime(
   const sendMessage = vi.fn(async (message: OutgoingMessage) => {
     if (message.type === 'GET_SETTINGS') {
       return { type: 'SETTINGS', settings: { ...DEFAULT_SETTINGS, ...settings } };
+    }
+    // Local-only bookkeeping; answered generically so tests can focus on lookups.
+    if (
+      message.type === 'BADGES_SHOWN' ||
+      message.type === 'RECORD_VIEW' ||
+      message.type === 'GET_USAGE' ||
+      message.type === 'CLEAR_USAGE'
+    ) {
+      return { type: 'USAGE', stats: EMPTY_USAGE, recents: [] };
     }
     return reply(message);
   });

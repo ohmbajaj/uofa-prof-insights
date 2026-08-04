@@ -239,6 +239,83 @@ button.btn--danger {
   color: #8c1030;
 }
 
+.section-title {
+  margin: 18px 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--upi-muted);
+}
+
+.feature-list {
+  margin: 0;
+  padding-left: 18px;
+  color: #333;
+}
+
+.feature-list li {
+  margin-bottom: 3px;
+}
+
+.recents {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.recent {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--upi-border);
+}
+
+.recent:last-child {
+  border-bottom: 0;
+}
+
+.recent__score {
+  flex: 0 0 auto;
+  min-width: 34px;
+  padding: 3px 0;
+  border-radius: 4px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  text-align: center;
+}
+
+.recent__meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.recent__meta a {
+  color: var(--upi-blue);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.recent__meta a:hover {
+  text-decoration: underline;
+}
+
+.recent__sub {
+  color: var(--upi-muted);
+  font-size: 11px;
+}
+
+.tally {
+  margin: 14px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--upi-border);
+  color: var(--upi-muted);
+  font-size: 11px;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

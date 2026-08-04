@@ -1,4 +1,4 @@
-import type { ExtensionSettings, ProfessorData } from './types';
+import type { ExtensionSettings, ProfessorData, RecentProfessor, UsageStats } from './types';
 
 // Content Script / Popup -> Service Worker
 export type OutgoingMessage =
@@ -8,7 +8,11 @@ export type OutgoingMessage =
   | { type: 'CLEAR_CACHE' }
   | { type: 'REFRESH_PROFESSOR'; name: string }
   | { type: 'GET_SETTINGS' }
-  | { type: 'SAVE_SETTINGS'; settings: Partial<ExtensionSettings> };
+  | { type: 'SAVE_SETTINGS'; settings: Partial<ExtensionSettings> }
+  | { type: 'GET_USAGE' }
+  | { type: 'RECORD_VIEW'; data: ProfessorData }
+  | { type: 'BADGES_SHOWN'; count: number }
+  | { type: 'CLEAR_USAGE' };
 
 // Service Worker -> Content Script / Popup
 export type IncomingMessage =
@@ -17,6 +21,7 @@ export type IncomingMessage =
   | { type: 'CACHE_STATS'; stats: { count: number; oldestAge: number } }
   | { type: 'CACHE_CLEARED' }
   | { type: 'SETTINGS'; settings: ExtensionSettings }
+  | { type: 'USAGE'; stats: UsageStats; recents: RecentProfessor[] }
   | { type: 'ERROR'; message: string };
 
 /** Narrowing helpers so handlers can switch exhaustively on `type`. */

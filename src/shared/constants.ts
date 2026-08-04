@@ -26,6 +26,11 @@ export const MAX_CONCURRENT_REQUESTS = 5;
 
 export const CACHE_STORAGE_KEY = 'upi_professor_cache';
 export const SETTINGS_STORAGE_KEY = 'upi_settings';
+export const STATS_STORAGE_KEY = 'upi_stats';
+export const RECENTS_STORAGE_KEY = 'upi_recents';
+
+/** How many recently viewed professors the popup keeps. */
+export const MAX_RECENT_PROFESSORS = 8;
 
 /** Lives here rather than in background/ so content and popup can read it too. */
 export const DEFAULT_SETTINGS = {

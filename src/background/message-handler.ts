@@ -3,6 +3,7 @@ import type { IncomingMessage, OutgoingMessage } from '@shared/messages';
 import type { ProfessorData } from '@shared/types';
 import { normalizeCacheKey, normalizeNameForRMP } from '@shared/utils';
 import * as cache from './cache';
+import * as stats from './stats';
 import { searchProfessor } from './rmp-api';
 
 /**
@@ -45,7 +46,10 @@ export async function lookup(rawName: string, forceRefresh = false): Promise<Pro
     await cache.remove(key);
   } else {
     const cached = await cache.get(key);
-    if (cached) return cached;
+    if (cached) {
+      void stats.bumpStats({ lookups: 1, cacheHits: 1, matches: 1 });
+      return cached;
+    }
 
     const pending = inFlight.get(key);
     if (pending) return pending;
@@ -55,8 +59,10 @@ export async function lookup(rawName: string, forceRefresh = false): Promise<Pro
     try {
       const data = await searchProfessor(name);
       if (data) await cache.set(key, data);
+      void stats.bumpStats({ lookups: 1, ...(data ? { matches: 1 } : { misses: 1 }) });
       return data;
     } catch (error) {
+      void stats.bumpStats({ lookups: 1, errors: 1 });
       console.warn(`[UPI] lookup failed for "${name}":`, error);
       return null;
     } finally {
@@ -109,6 +115,27 @@ export async function handleMessage(message: OutgoingMessage): Promise<IncomingM
         await cache.clear();
         inFlight.clear();
         return { type: 'CACHE_CLEARED' };
+
+      case 'GET_USAGE':
+        return {
+          type: 'USAGE',
+          stats: await stats.getStats(),
+          recents: await stats.getRecents(),
+        };
+
+      case 'RECORD_VIEW': {
+        const recents = await stats.recordRecent(message.data);
+        return { type: 'USAGE', stats: await stats.getStats(), recents };
+      }
+
+      case 'BADGES_SHOWN':
+        await stats.bumpStats({ badgesShown: message.count });
+        return { type: 'USAGE', stats: await stats.getStats(), recents: await stats.getRecents() };
+
+      case 'CLEAR_USAGE':
+        await stats.clearStats();
+        await stats.clearRecents();
+        return { type: 'USAGE', stats: stats.EMPTY_STATS, recents: [] };
 
       default: {
         const exhaustive: never = message;

@@ -3,10 +3,53 @@ import { MAX_CACHE_TTL_DAYS, MIN_CACHE_TTL_DAYS } from '@shared/constants';
 import { sendMessage } from '@shared/messaging';
 import type { ExtensionSettings } from '@shared/types';
 
+/** Whole days, since the cache TTL is expressed in days. */
+function formatAge(ms: number): string {
+  if (ms <= 0) return '—';
+  const hours = Math.floor(ms / 3_600_000);
+  if (hours < 1) return '<1h';
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
+
 export default function Settings() {
   const [settings, setSettings] = useState<ExtensionSettings | null>(null);
+  const [cacheStats, setCacheStats] = useState<{ count: number; oldestAge: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const loadCacheStats = useCallback(async () => {
+    try {
+      const reply = await sendMessage({ type: 'GET_CACHE_STATS' }, 'CACHE_STATS');
+      setCacheStats(reply.stats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, []);
+
+  const clearCache = useCallback(async () => {
+    setBusy(true);
+    try {
+      await sendMessage({ type: 'CLEAR_CACHE' }, 'CACHE_CLEARED');
+      setCacheStats({ count: 0, oldestAge: 0 });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  const clearUsage = useCallback(async () => {
+    setBusy(true);
+    try {
+      await sendMessage({ type: 'CLEAR_USAGE' }, 'USAGE');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -17,7 +60,8 @@ export default function Settings() {
         setError(err instanceof Error ? err.message : String(err));
       }
     })();
-  }, []);
+    void loadCacheStats();
+  }, [loadCacheStats]);
 
   const save = useCallback(async (patch: Partial<ExtensionSettings>) => {
     // Optimistic: the toggle should feel instant, and a failure re-renders
@@ -131,6 +175,36 @@ export default function Settings() {
           />{' '}
           days
         </div>
+      </div>
+
+      <h2 className="section-title">Stored data</h2>
+      <p className="field__hint" style={{ marginBottom: 8 }}>
+        Ratings and usage counts live only in this browser and are never sent anywhere.
+      </p>
+
+      <div className="stat-grid">
+        <div className="stat">
+          <div className="stat__value">{cacheStats ? cacheStats.count : '—'}</div>
+          <div className="stat__label">Professors cached</div>
+        </div>
+        <div className="stat">
+          <div className="stat__value">{cacheStats ? formatAge(cacheStats.oldestAge) : '—'}</div>
+          <div className="stat__label">Oldest entry</div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          className="btn btn--danger"
+          type="button"
+          onClick={() => void clearCache()}
+          disabled={busy || cacheStats?.count === 0}
+        >
+          Clear cache
+        </button>
+        <button className="btn" type="button" onClick={() => void clearUsage()} disabled={busy}>
+          Clear history
+        </button>
       </div>
 
       {error && <p className="notice notice--error">{error}</p>}

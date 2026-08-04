@@ -150,6 +150,15 @@ function badgeFor(name: string): UPIBadge | null {
  */
 function onBadgeClick(event: Event): void {
   const detail = (event as CustomEvent<BadgeData>).detail;
+
+  // Opening a card counts as viewing a professor. Recorded locally only.
+  if (detail && detail !== 'loading' && detail !== 'error') {
+    void sendMessage({ type: 'RECORD_VIEW', data: detail }, 'USAGE').catch(() => {
+      // A stats failure must never disturb the page.
+    });
+    return;
+  }
+
   if (detail !== 'error') return;
 
   const badge = event.target as UPIBadge | null;
@@ -183,6 +192,12 @@ function onDetect(profs: DetectedProfessor[]): void {
 
   refreshFilter();
   refreshSidebar();
+
+  if (added.length > 0) {
+    void sendMessage({ type: 'BADGES_SHOWN', count: added.length }, 'USAGE').catch(() => {
+      // Counters are a nicety; never let them break a detection pass.
+    });
+  }
 
   for (const { badge, professor } of added) {
     // Fire and forget — resolveBadge handles its own failures.

@@ -1,23 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { sendMessage } from '@shared/messaging';
-import type { ProfessorData } from '@shared/types';
+import type { ProfessorData, RecentProfessor, UsageStats } from '@shared/types';
+import { getRatingColor } from '@shared/utils';
 import SearchBar from '../components/SearchBar';
 import ProfessorResult from '../components/ProfessorResult';
-
-interface CacheStats {
-  count: number;
-  oldestAge: number;
-}
-
-/** Whole days, since the cache TTL is expressed in days. */
-function formatAge(ms: number): string {
-  if (ms <= 0) return '—';
-  const hours = Math.floor(ms / 3_600_000);
-  if (hours < 1) return '<1h';
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  return `${days}d`;
-}
 
 type SearchState =
   | { status: 'idle' }
@@ -26,49 +12,44 @@ type SearchState =
   | { status: 'missing'; name: string }
   | { status: 'failed'; message: string };
 
+function relativeTime(then: number, now = Date.now()): string {
+  const minutes = Math.floor((now - then) / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return days === 1 ? 'yesterday' : `${days}d ago`;
+}
+
 export default function Status() {
-  const [stats, setStats] = useState<CacheStats | null>(null);
-  const [statsError, setStatsError] = useState<string | null>(null);
-  const [clearing, setClearing] = useState(false);
+  const [stats, setStats] = useState<UsageStats | null>(null);
+  const [recents, setRecents] = useState<RecentProfessor[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState<SearchState>({ status: 'idle' });
 
-  const loadStats = useCallback(async () => {
+  const loadUsage = useCallback(async () => {
     try {
-      const reply = await sendMessage({ type: 'GET_CACHE_STATS' }, 'CACHE_STATS');
+      const reply = await sendMessage({ type: 'GET_USAGE' }, 'USAGE');
       setStats(reply.stats);
-      setStatsError(null);
-    } catch (error) {
-      setStatsError(error instanceof Error ? error.message : String(error));
+      setRecents(reply.recents);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     }
   }, []);
 
   useEffect(() => {
-    void loadStats();
-  }, [loadStats]);
+    void loadUsage();
+  }, [loadUsage]);
 
   const onSearch = useCallback(async (name: string) => {
     setSearch({ status: 'busy' });
     try {
       const reply = await sendMessage({ type: 'LOOKUP_PROFESSOR', name }, 'PROFESSOR_RESULT');
       setSearch(reply.data ? { status: 'found', data: reply.data } : { status: 'missing', name });
-    } catch (error) {
-      setSearch({
-        status: 'failed',
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }, []);
-
-  const onClear = useCallback(async () => {
-    setClearing(true);
-    try {
-      await sendMessage({ type: 'CLEAR_CACHE' }, 'CACHE_CLEARED');
-      setStats({ count: 0, oldestAge: 0 });
-      setStatsError(null);
-    } catch (error) {
-      setStatsError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setClearing(false);
+    } catch (err) {
+      setSearch({ status: 'failed', message: err instanceof Error ? err.message : String(err) });
     }
   }, []);
 
@@ -85,31 +66,48 @@ export default function Status() {
       )}
       {search.status === 'failed' && <p className="notice notice--error">{search.message}</p>}
 
-      <h2 className="field__label" style={{ marginTop: 18, marginBottom: 6 }}>
-        Cache
-      </h2>
+      <h2 className="section-title">What this adds to UAccess</h2>
+      <ul className="feature-list">
+        <li>Rating badge beside every instructor in class search</li>
+        <li>Click a badge for difficulty, retake rate and per-course ratings</li>
+        <li>Filter sections by instructor rating</li>
+        <li>Sidebar ranking every instructor on the page</li>
+      </ul>
 
-      <div className="stat-grid">
-        <div className="stat">
-          <div className="stat__value">{stats ? stats.count : '—'}</div>
-          <div className="stat__label">Professors cached</div>
-        </div>
-        <div className="stat">
-          <div className="stat__value">{stats ? formatAge(stats.oldestAge) : '—'}</div>
-          <div className="stat__label">Oldest entry</div>
-        </div>
-      </div>
+      {recents.length > 0 && (
+        <>
+          <h2 className="section-title">Recently viewed</h2>
+          <ul className="recents">
+            {recents.map((r) => (
+              <li key={r.name} className="recent">
+                <span
+                  className="recent__score"
+                  style={{ background: getRatingColor(r.overallRating) }}
+                >
+                  {r.overallRating === null ? 'N/A' : r.overallRating.toFixed(1)}
+                </span>
+                <span className="recent__meta">
+                  <a href={r.rmpUrl} target="_blank" rel="noopener noreferrer">
+                    {r.name}
+                  </a>
+                  <span className="recent__sub">
+                    {r.department} · {relativeTime(r.viewedAt)}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
 
-      {statsError && <p className="notice notice--error">{statsError}</p>}
+      {stats !== null && stats.lookups > 0 && (
+        <p className="tally">
+          {stats.badgesShown} badges shown · {stats.matches} matched · {stats.misses} not on RMP
+          {stats.errors > 0 && ` · ${stats.errors} failed`}
+        </p>
+      )}
 
-      <button
-        className="btn btn--danger"
-        type="button"
-        onClick={() => void onClear()}
-        disabled={clearing || stats?.count === 0}
-      >
-        {clearing ? 'Clearing…' : 'Clear cache'}
-      </button>
+      {error && <p className="notice notice--error">{error}</p>}
     </div>
   );
 }

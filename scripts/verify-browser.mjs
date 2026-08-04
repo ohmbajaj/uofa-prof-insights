@@ -373,6 +373,15 @@ ${css ? `<link rel="stylesheet" href="./${css}">` : ''}
     runtime: {
       sendMessage: (m) => new Promise((resolve) => setTimeout(() => {
         if (m.type === 'GET_CACHE_STATS') return resolve({ type: 'CACHE_STATS', stats: { count: 37, oldestAge: 3 * 86400000 } });
+        if (m.type === 'GET_USAGE' || m.type === 'CLEAR_USAGE') return resolve({
+          type: 'USAGE',
+          stats: { lookups: 41, matches: 33, misses: 6, errors: 2, cacheHits: 18, badgesShown: 41, since: Date.now() - 5 * 86400000 },
+          recents: [
+            { name: 'Rick Mercer', department: 'Computer Science', overallRating: 2.9, numRatings: 164, rmpUrl: 'https://www.ratemyprofessors.com/professor/12302', viewedAt: Date.now() - 4 * 60000 },
+            { name: "Sean O'Brien", department: 'English', overallRating: 4.6, numRatings: 8, rmpUrl: 'https://www.ratemyprofessors.com/professor/2', viewedAt: Date.now() - 3 * 3600000 },
+            { name: 'Saumya Debray', department: 'Computer Science', overallRating: 3.4, numRatings: 21, rmpUrl: 'https://www.ratemyprofessors.com/professor/3', viewedAt: Date.now() - 2 * 86400000 },
+          ],
+        });
         if (m.type === 'GET_SETTINGS') return resolve({ type: 'SETTINGS', settings: { autoDetect: true, showComparison: true, cacheTTLDays: 7 } });
         if (m.type === 'SAVE_SETTINGS') return resolve({ type: 'SETTINGS', settings: { autoDetect: true, showComparison: true, cacheTTLDays: 7, ...m.settings } });
         if (m.type === 'CLEAR_CACHE') return resolve({ type: 'CACHE_CLEARED' });
@@ -417,6 +426,10 @@ ${css ? `<link rel="stylesheet" href="./${css}">` : ''}
     mounted: !!document.querySelector('.app'),
     tabs: [...document.querySelectorAll('[role="tab"]')].map((t) => t.textContent),
     cacheCount: document.querySelector('.stat__value')?.textContent ?? null,
+    recents: [...document.querySelectorAll('.recent__meta a')].map((n) => n.textContent),
+    hasFeatureList: !!document.querySelector('.feature-list'),
+    tally: document.querySelector('.tally')?.textContent ?? null,
+    cacheOnStatus: !!document.querySelector('.stat__label'),
     searchRendered: text.includes('Richard Mercer'),
     showsDifficulty: /Difficulty 2\\.9/.test(text),
     showsTags: text.includes('Lecture heavy'),
@@ -616,7 +629,11 @@ if (report) {
     ['popup mounted', popup?.mounted === true],
     ['popup shows both tabs', popup?.tabs?.join(',') === 'Status,Settings'],
     ['popup stylesheet applied', popup?.styled === 'rgb(12, 35, 75)'],
-    ['popup shows cache stats', popup?.cacheCount === '37'],
+    ['popup Status explains what was added', popup?.hasFeatureList === true],
+    ['popup Status lists recently viewed', popup?.recents?.length === 3],
+    ['popup Status shows a usage tally', /41 badges shown/.test(popup?.tally ?? '')],
+    ['cache moved off Status into Settings', popup?.cacheOnStatus === false],
+    ['Settings holds the cache stats', settings?.cacheCount === '37'],
     ['popup search renders a result', popup?.searchRendered === true],
     ['popup result shows difficulty', popup?.showsDifficulty === true],
     ['popup result shows tags', popup?.showsTags === true],

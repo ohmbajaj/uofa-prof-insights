@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { IncomingMessage, OutgoingMessage } from '@shared/messages';
+import type { RecentProfessor } from '@shared/types';
 import { DEFAULT_SETTINGS } from '@shared/constants';
 import App from '@popup/App';
 import Status from '@popup/pages/Status';
@@ -26,6 +27,37 @@ const stats = (count: number, oldestAge = 0): IncomingMessage => ({
   stats: { count, oldestAge },
 });
 
+const EMPTY_USAGE = {
+  lookups: 0,
+  matches: 0,
+  misses: 0,
+  errors: 0,
+  cacheHits: 0,
+  badgesShown: 0,
+  since: 0,
+};
+
+const usage = (
+  patch: Partial<typeof EMPTY_USAGE> = {},
+  recents: RecentProfessor[] = [],
+): IncomingMessage => ({
+  type: 'USAGE',
+  stats: { ...EMPTY_USAGE, ...patch },
+  recents,
+});
+
+function recent(patch: Partial<RecentProfessor> = {}): RecentProfessor {
+  return {
+    name: 'Rick Mercer',
+    department: 'Computer Science',
+    overallRating: 2.9,
+    numRatings: 164,
+    rmpUrl: 'https://www.ratemyprofessors.com/professor/12302',
+    viewedAt: Date.now() - 3 * 60_000,
+    ...patch,
+  };
+}
+
 beforeEach(() => {
   vi.stubGlobal('__APP_VERSION__', '1.0.0');
 });
@@ -39,7 +71,7 @@ afterEach(() => {
 describe('App', () => {
   it('opens on the Status tab', async () => {
     installRuntime({
-      GET_CACHE_STATS: async () => stats(0),
+      GET_USAGE: async () => usage(),
     });
     render(<App />);
 
@@ -49,6 +81,7 @@ describe('App', () => {
 
   it('switches to Settings', async () => {
     installRuntime({
+      GET_USAGE: async () => usage(),
       GET_CACHE_STATS: async () => stats(0),
       GET_SETTINGS: async () => ({ type: 'SETTINGS', settings: { ...DEFAULT_SETTINGS } }),
     });
@@ -60,33 +93,74 @@ describe('App', () => {
   });
 
   it('shows the manifest version', () => {
-    installRuntime({ GET_CACHE_STATS: async () => stats(0) });
+    installRuntime({ GET_USAGE: async () => usage() });
     render(<App />);
     expect(screen.getByText('v1.0.0')).toBeTruthy();
   });
 });
 
 describe('Status page', () => {
-  it('shows cache statistics', async () => {
-    installRuntime({ GET_CACHE_STATS: async () => stats(42, 3 * 86_400_000) });
+  it('explains what the extension adds to UAccess', async () => {
+    installRuntime({ GET_USAGE: async () => usage() });
     render(<Status />);
 
-    await waitFor(() => expect(screen.getByText('42')).toBeTruthy());
-    expect(screen.getByText('3d')).toBeTruthy();
+    await waitFor(() => expect(screen.getByText(/What this adds to UAccess/i)).toBeTruthy());
+    expect(screen.getByText(/Filter sections by instructor rating/i)).toBeTruthy();
   });
 
-  it('reports a stats failure without breaking the page', async () => {
+  it('lists recently viewed professors', async () => {
     installRuntime({
-      GET_CACHE_STATS: async () => ({ type: 'ERROR', message: 'worker asleep' }),
+      GET_USAGE: async () =>
+        usage({ lookups: 5 }, [recent(), recent({ name: 'Saumya Debray', overallRating: 3.4 })]),
+    });
+    render(<Status />);
+
+    await waitFor(() => expect(screen.getByText('Rick Mercer')).toBeTruthy());
+    expect(screen.getByText('Saumya Debray')).toBeTruthy();
+    expect(screen.getByText('2.9')).toBeTruthy();
+  });
+
+  it('hides the recents section when there is nothing to show', async () => {
+    installRuntime({ GET_USAGE: async () => usage() });
+    render(<Status />);
+
+    await waitFor(() => expect(screen.getByText(/What this adds/i)).toBeTruthy());
+    expect(screen.queryByText(/Recently viewed/i)).toBeNull();
+  });
+
+  it('shows a usage tally once there has been activity', async () => {
+    installRuntime({
+      GET_USAGE: async () => usage({ lookups: 30, matches: 22, misses: 8, badgesShown: 30 }),
+    });
+    render(<Status />);
+
+    await waitFor(() => expect(screen.getByText(/30 badges shown/)).toBeTruthy());
+    expect(screen.getByText(/22 matched/)).toBeTruthy();
+    expect(screen.getByText(/8 not on RMP/)).toBeTruthy();
+  });
+
+  it('omits the tally before any lookups', async () => {
+    installRuntime({ GET_USAGE: async () => usage() });
+    render(<Status />);
+
+    await waitFor(() => expect(screen.getByText(/What this adds/i)).toBeTruthy());
+    expect(screen.queryByText(/badges shown/)).toBeNull();
+  });
+
+  it('reports a usage failure without breaking the page', async () => {
+    installRuntime({
+      GET_USAGE: async () => ({ type: 'ERROR', message: 'worker asleep' }),
     });
     render(<Status />);
 
     await waitFor(() => expect(screen.getByText('worker asleep')).toBeTruthy());
+    // The search box still works.
+    expect(screen.getByLabelText('Professor name')).toBeTruthy();
   });
 
   it('searches and renders a found professor', async () => {
     installRuntime({
-      GET_CACHE_STATS: async () => stats(1),
+      GET_USAGE: async () => usage(),
       LOOKUP_PROFESSOR: async () => ({
         type: 'PROFESSOR_RESULT',
         name: 'Richard Mercer',
@@ -106,7 +180,7 @@ describe('Status page', () => {
 
   it('explains a miss rather than showing an empty card', async () => {
     installRuntime({
-      GET_CACHE_STATS: async () => stats(0),
+      GET_USAGE: async () => usage(),
       LOOKUP_PROFESSOR: async () => ({ type: 'PROFESSOR_RESULT', name: 'Nobody', data: null }),
     });
     render(<Status />);
@@ -119,7 +193,7 @@ describe('Status page', () => {
 
   it('surfaces a search failure', async () => {
     installRuntime({
-      GET_CACHE_STATS: async () => stats(0),
+      GET_USAGE: async () => usage(),
       LOOKUP_PROFESSOR: async () => ({ type: 'ERROR', message: 'RMP unreachable' }),
     });
     render(<Status />);
@@ -131,34 +205,21 @@ describe('Status page', () => {
   });
 
   it('will not search an empty box', async () => {
-    installRuntime({ GET_CACHE_STATS: async () => stats(0) });
+    installRuntime({ GET_USAGE: async () => usage() });
     render(<Status />);
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Search' })).toBeTruthy());
     expect(screen.getByRole('button', { name: 'Search' })).toHaveProperty('disabled', true);
   });
 
-  it('clears the cache and zeroes the counter', async () => {
-    const send = installRuntime({
-      GET_CACHE_STATS: async () => stats(42),
-      CLEAR_CACHE: async () => ({ type: 'CACHE_CLEARED' }),
-    });
+  it('keeps cache controls off the Status screen', async () => {
+    installRuntime({ GET_USAGE: async () => usage({ lookups: 3 }) });
     render(<Status />);
 
-    await waitFor(() => expect(screen.getByText('42')).toBeTruthy());
-    fireEvent.click(screen.getByRole('button', { name: 'Clear cache' }));
-
-    await waitFor(() => expect(screen.getByText('0')).toBeTruthy());
-    expect(send).toHaveBeenCalledWith({ type: 'CLEAR_CACHE' });
-  });
-
-  it('disables Clear cache when nothing is cached', async () => {
-    installRuntime({ GET_CACHE_STATS: async () => stats(0) });
-    render(<Status />);
-
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Clear cache' })).toHaveProperty('disabled', true),
-    );
+    await waitFor(() => expect(screen.getByText(/What this adds/i)).toBeTruthy());
+    // Cache is maintenance, and lives in Settings.
+    expect(screen.queryByRole('button', { name: 'Clear cache' })).toBeNull();
+    expect(screen.queryByText(/Professors cached/i)).toBeNull();
   });
 });
 
@@ -187,6 +248,7 @@ describe('Settings page', () => {
   it('saves a toggle change', async () => {
     const send = installRuntime({
       GET_SETTINGS: async () => ({ type: 'SETTINGS', settings: { ...DEFAULT_SETTINGS } }),
+      GET_CACHE_STATS: async () => stats(0),
       SAVE_SETTINGS: async () => ({
         type: 'SETTINGS',
         settings: { ...DEFAULT_SETTINGS, autoDetect: false },
@@ -208,6 +270,7 @@ describe('Settings page', () => {
   it('saves a TTL change', async () => {
     const send = installRuntime({
       GET_SETTINGS: async () => ({ type: 'SETTINGS', settings: { ...DEFAULT_SETTINGS } }),
+      GET_CACHE_STATS: async () => stats(0),
       SAVE_SETTINGS: async () => ({
         type: 'SETTINGS',
         settings: { ...DEFAULT_SETTINGS, cacheTTLDays: 30 },
@@ -233,6 +296,7 @@ describe('Settings page', () => {
   it('reports a save failure', async () => {
     installRuntime({
       GET_SETTINGS: async () => ({ type: 'SETTINGS', settings: { ...DEFAULT_SETTINGS } }),
+      GET_CACHE_STATS: async () => stats(0),
       SAVE_SETTINGS: async () => ({ type: 'ERROR', message: 'could not save' }),
     });
     render(<Settings />);
