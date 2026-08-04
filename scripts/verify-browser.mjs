@@ -1,0 +1,413 @@
+/**
+ * Runs the real built content script in real Chrome against mock UAccess markup.
+ *
+ * jsdom has no layout engine, so the unit and integration suites cannot answer
+ * the questions that actually matter for an in-page extension: does the custom
+ * element upgrade, does the badge fit inside the table cell, does anything
+ * overflow. This drives headless Chrome, collects measurements from the live
+ * page, and writes a screenshot for a human to glance at.
+ *
+ * Usage: node scripts/verify-browser.mjs   (run `npm run build` first)
+ */
+import { createServer } from 'node:http';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { spawn } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { dirname, extname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const DIST = join(ROOT, 'dist');
+const OUT = join(ROOT, 'release', 'verify');
+
+const CHROME_CANDIDATES = [
+  join(process.env.ProgramFiles ?? '', 'Google/Chrome/Application/chrome.exe'),
+  join(process.env['ProgramFiles(x86)'] ?? '', 'Google/Chrome/Application/chrome.exe'),
+  join(process.env.LOCALAPPDATA ?? '', 'Google/Chrome/Application/chrome.exe'),
+  '/usr/bin/google-chrome',
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+];
+
+const MIME = {
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
+  '.png': 'image/png',
+};
+
+function findChrome() {
+  const found = CHROME_CANDIDATES.find((p) => p && existsSync(p));
+  if (!found) {
+    console.error('Chrome not found. Checked:\n  ' + CHROME_CANDIDATES.join('\n  '));
+    process.exit(1);
+  }
+  return found;
+}
+
+/**
+ * The real content script bundle.
+ *
+ * NOT the file named in the manifest: CRXJS points `content_scripts.js` at a
+ * tiny loader that dynamic-imports the actual bundle through
+ * `chrome.runtime.getURL`, which only resolves inside a real extension. The
+ * harness loads the bundle the loader would have fetched.
+ */
+function findContentBundle() {
+  const assets = readdirSync(join(DIST, 'assets'));
+  const bundle = assets.find(
+    (f) => f.startsWith('index.ts-') && !f.includes('loader') && f.endsWith('.js'),
+  );
+  if (!bundle) {
+    console.error('Could not locate the content script bundle in dist/assets.');
+    process.exit(1);
+  }
+  return `assets/${bundle}`;
+}
+
+// ------------------------------------------------------------ the mock page
+
+const CLASSIC_ROWS = [
+  ['CSC 110', '001', '71613', 'Harvill Bldg, Rm 101', 'Mercer, Richard'],
+  ['CSC 210', '002', '71614', 'Gould-Simpson, Rm 906', 'Debray, Saumya'],
+  ['CSC 245', '001', '71615', 'Social Sciences, Rm 100', 'Staff'],
+  ['CSC 335', '001', '71616', 'Gould-Simpson, Rm 701', "O'Brien, Sean"],
+]
+  .map(
+    ([code, sec, nbr, room, instr], i) => `
+  <tr id="trCLASS_SRCH_WRK2_STRM$0_row${i + 1}" valign="center">
+    <td align="left">${code}</td>
+    <td align="left">${sec}</td>
+    <td align="right">${nbr}</td>
+    <td align="left">Regular Academic Session</td>
+    <td align="left" colspan="2">08/21/2026 - 12/06/2026<br>MWF 9:00AM - 9:50AM</td>
+    <td align="left">${room}</td>
+    <td align="right">4.000</td>
+    <td align="left" id="MTG_INSTR$${i}">${instr}</td>
+  </tr>`,
+  )
+  .join('');
+
+function harnessHtml(bundlePath) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>UAccess mock — verification harness</title>
+<style>
+  /* Approximates PeopleSoft's own styling, including a couple of aggressive
+     global rules that a naive badge implementation would inherit. */
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; margin: 16px; background: #fff; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 24px; }
+  th { background: #4a6a8a; color: #fff; text-align: left; padding: 6px 8px; font-size: 11px; }
+  td { border-bottom: 1px solid #dcdcdc; padding: 6px 8px; vertical-align: top; }
+  span { color: inherit; }
+  div { box-sizing: content-box; }
+  .resultPanel { border: 1px solid #ccc; margin-bottom: 12px; }
+  .courseTitle { background: #eef1f5; padding: 8px; display: flex; gap: 8px; }
+  .courseCode { font-weight: bold; }
+  .panel-body { padding: 8px; }
+  .classSection { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 6px 0; border-top: 1px solid #eee; }
+  .instructor { font-weight: 600; }
+  #verify { white-space: pre-wrap; font-family: Consolas, monospace; font-size: 11px; background: #f6f6f6; padding: 8px; }
+</style>
+</head>
+<body>
+
+<h2>Classic UAccess</h2>
+<table id="CLASS_SRCH_WRK2_STRM$scroll$0">
+  <tr>
+    <th scope="col" id="CLASS_SRCH_WRK2_STRM_SUBJ_CATALOG_NBR$0">Class</th>
+    <th scope="col" id="CLASS_SRCH_WRK2_STRM_CRSE_OFFER_NBR$0">Section</th>
+    <th scope="col" id="CLASS_SRCH_WRK2_STRM_CLASS_SECTION$0">Class Nbr</th>
+    <th scope="col" id="CLASS_SRCH_WRK2_STRM_SESSION_CODE$0">Session</th>
+    <th scope="col" id="CLASS_SRCH_WRK2_STRM_CLASS_START_DT$0">Start/End Date</th>
+    <th scope="col" id="CLASS_SRCH_WRK2_STRM_DAY$0">Days &amp; Times</th>
+    <th scope="col" id="CLASS_SRCH_WRK2_STRM_LOCATION$0">Room</th>
+    <th scope="col" id="CLASS_SRCH_WRK2_STRM_UNITS_RANGE$0">Units</th>
+    <th scope="col" id="CLASS_SRCH_WRK2_STRM_INSTRUCTOR$0">Instructor</th>
+  </tr>
+  ${CLASSIC_ROWS}
+</table>
+
+<h2>New Student Center</h2>
+<div id="CSCResult1" class="resultPanel collapsible">
+  <div class="courseTitle">
+    <div class="courseCode">CSC 110</div>
+    <div class="courseName">Principles of Programming with Python</div>
+  </div>
+  <div class="panel-body">
+    <div class="sectionDetails">
+      <div class="classSection">
+        <div class="sectionData"><div class="classNbr">71613</div></div>
+        <div class="meetingData"><div class="days">MoWeFr</div></div>
+        <div class="locationData"><div class="room">Harvill 101</div></div>
+        <div class="classInstructors"><div class="instructor">Mercer, Richard</div></div>
+      </div>
+      <div class="classSection">
+        <div class="sectionData"><div class="classNbr">71620</div></div>
+        <div class="meetingData"><div class="days">TuTh</div></div>
+        <div class="locationData"><div class="room">Gould-Simpson 906</div></div>
+        <div class="classInstructors"><div class="instructor">Debray, Saumya</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2>Measurements</h2>
+<pre id="verify">running…</pre>
+
+<script>
+  // Row heights BEFORE the extension touches anything, for a layout diff.
+  window.__baseline = [...document.querySelectorAll('#CLASS_SRCH_WRK2_STRM\\\\$scroll\\\\$0 tr')]
+    .map((r) => Math.round(r.getBoundingClientRect().height));
+  window.__baselineScrollWidth = document.documentElement.scrollWidth;
+
+  const DB = {
+    'Richard Mercer': { rating: 2.9, difficulty: 2.9, wta: 48.6, n: 164, tags: ['Lecture heavy', 'Tough grader'] },
+    'Saumya Debray': { rating: 3.4, difficulty: 4.3, wta: 60, n: 21, tags: ['Get ready to read'] },
+    "Sean O'Brien": { rating: 4.6, difficulty: 2.1, wta: 92, n: 8, tags: ['Caring'] },
+  };
+
+  // Minimal chrome.runtime stand-in — the service worker is not under test here.
+  window.chrome = {
+    runtime: {
+      sendMessage: (message) => new Promise((resolve) => {
+        setTimeout(() => {
+          if (message.type === 'GET_SETTINGS') {
+            return resolve({ type: 'SETTINGS', settings: { autoDetect: true, showComparison: true, cacheTTLDays: 7 } });
+          }
+          const hit = DB[message.name];
+          resolve({
+            type: 'PROFESSOR_RESULT',
+            name: message.name,
+            data: hit ? {
+              id: 'VGVhY2hlci0x', name: message.name,
+              department: 'Computer Science', university: 'University of Arizona',
+              overallRating: hit.rating, difficulty: hit.difficulty,
+              wouldTakeAgain: hit.wta, numRatings: hit.n, topTags: hit.tags,
+              rmpUrl: 'https://www.ratemyprofessors.com/professor/12302',
+              cachedAt: Date.now() - 3 * 86400000,
+            } : null,
+          });
+        }, 60);
+      }),
+    },
+  };
+</script>
+
+<script type="module" src="./${bundlePath}"></script>
+
+<script type="module">
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  await sleep(1200);
+
+  const badges = [...document.querySelectorAll('upi-badge')];
+  const table = document.querySelector('#CLASS_SRCH_WRK2_STRM\\\\$scroll\\\\$0');
+  const rows = [...table.querySelectorAll('tr')];
+
+  // Open a card so its real, laid-out position can be measured.
+  const first = badges.find((b) => b.closest('td'));
+  if (first) first.click();
+  await sleep(250);
+
+  const card = document.querySelector('upi-card');
+  const cardRect = card ? card.getBoundingClientRect() : null;
+  const anchorRect = first ? first.getBoundingClientRect() : null;
+  const sidebar = document.querySelector('upi-sidebar');
+
+  const report = {
+    badgeCount: badges.length,
+    upgraded: badges.filter((b) => b.shadowRoot !== null).length,
+    constructorName: badges[0] ? badges[0].constructor.name : null,
+    rendered: badges.map((b) => (b.shadowRoot?.querySelector('.badge')?.textContent ?? '').trim()),
+    // A fixed-position sidebar silently covers the right-hand columns unless
+    // the page reserves room for it. That is the Instructor column here — the
+    // one the badges hang off — so nothing may sit underneath the panel.
+    instructorCellsVisible: (() => {
+      const panel = document.querySelector('upi-sidebar');
+      if (!panel) return null;
+      const left = panel.getBoundingClientRect().left;
+      const cells = [
+        ...document.querySelectorAll('[id^="MTG_INSTR"], .instructor'),
+      ];
+      return cells.every((c) => c.getBoundingClientRect().right <= left + 1);
+    })(),
+    // Did any badge escape its cell? (a <tr>-parented badge would.)
+    badgesInsideCell: badges.every((b) => b.closest('td') !== null || b.closest('.instructor') !== null),
+    badgeFitsCell: badges.every((b) => {
+      const host = b.closest('td') ?? b.closest('.instructor');
+      if (!host) return false;
+      const hb = host.getBoundingClientRect(), bb = b.getBoundingClientRect();
+      return bb.left >= hb.left - 1 && bb.right <= hb.right + 1 && bb.bottom <= hb.bottom + 1;
+    }),
+    rowHeightsBefore: window.__baseline,
+    rowHeightsAfter: rows.map((r) => Math.round(r.getBoundingClientRect().height)),
+    horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth,
+    scrollWidthBefore: window.__baselineScrollWidth,
+    scrollWidthAfter: document.documentElement.scrollWidth,
+    card: cardRect ? {
+      opened: true,
+      width: Math.round(cardRect.width),
+      height: Math.round(cardRect.height),
+      belowAnchor: Math.round(cardRect.top) >= Math.round(anchorRect.bottom),
+      withinViewport: cardRect.left >= 0 && cardRect.right <= window.innerWidth,
+      clearOfSidebar: sidebar ? cardRect.right <= sidebar.getBoundingClientRect().left + 1 : true,
+      text: (card.shadowRoot?.querySelector('.card')?.textContent ?? '').replace(/\\s+/g, ' ').trim(),
+    } : { opened: false },
+    sidebar: sidebar ? {
+      mounted: true,
+      width: Math.round(sidebar.getBoundingClientRect().width),
+      rows: [...sidebar.shadowRoot.querySelectorAll('.meta .name')].map((n) => n.textContent),
+      scores: [...sidebar.shadowRoot.querySelectorAll('.score')].map((n) => n.textContent),
+    } : { mounted: false },
+  };
+
+  document.getElementById('verify').textContent = JSON.stringify(report, null, 2);
+  document.title = 'done';
+
+  // POSTing beats scraping --dump-dom: no HTML-entity round-tripping, and the
+  // driver learns exactly when the measurements are ready.
+  await fetch('/report', { method: 'POST', body: JSON.stringify(report) });
+</script>
+</body>
+</html>`;
+}
+
+// ------------------------------------------------------------------- driver
+
+if (!existsSync(DIST)) {
+  console.error('dist/ not found — run `npm run build` first.');
+  process.exit(1);
+}
+
+const chrome = findChrome();
+const bundle = findContentBundle();
+console.log(`chrome:  ${chrome}`);
+console.log(`bundle:  ${bundle}`);
+
+writeFileSync(join(DIST, '__harness.html'), harnessHtml(bundle));
+mkdirSync(OUT, { recursive: true });
+
+let onReport;
+const reportPromise = new Promise((resolve) => {
+  onReport = resolve;
+});
+
+const server = createServer((req, res) => {
+  const path = decodeURIComponent((req.url ?? '/').split('?')[0]);
+
+  if (req.method === 'POST' && path === '/report') {
+    let body = '';
+    req.on('data', (chunk) => (body += chunk));
+    req.on('end', () => {
+      res.writeHead(204).end();
+      onReport(JSON.parse(body));
+    });
+    return;
+  }
+
+  const file = join(DIST, path === '/' ? '__harness.html' : path);
+  if (!existsSync(file)) {
+    res.writeHead(404).end('not found');
+    return;
+  }
+  res.writeHead(200, { 'Content-Type': MIME[extname(file)] ?? 'application/octet-stream' });
+  res.end(readFileSync(file));
+});
+
+await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+const port = server.address().port;
+const url = `http://127.0.0.1:${port}/`;
+console.log(`serving: ${url}\n`);
+
+const shot = join(OUT, 'uaccess-mock.png');
+// A throwaway profile is essential: without it Chrome hands the URL to the
+// already-running browser and the launched process exits (or hangs) immediately.
+const profile = mkdtempSync(join(tmpdir(), 'upi-verify-'));
+
+const child = spawn(
+  chrome,
+  [
+    '--headless=new',
+    `--user-data-dir=${profile}`,
+    '--disable-gpu',
+    '--no-first-run',
+    '--no-default-browser-check',
+    '--disable-background-networking',
+    '--disable-sync',
+    '--disable-default-apps',
+    '--hide-scrollbars',
+    '--window-size=1280,1000',
+    `--screenshot=${shot}`,
+    '--virtual-time-budget=8000',
+    url,
+  ],
+  { stdio: ['ignore', 'pipe', 'pipe'] },
+);
+
+const exited = new Promise((resolve) => child.on('exit', resolve));
+const timeout = new Promise((_, reject) =>
+  setTimeout(() => reject(new Error('timed out waiting for the harness report')), 60_000),
+);
+
+let report;
+try {
+  report = await Promise.race([reportPromise, timeout]);
+  // Give Chrome its remaining virtual time so the screenshot lands.
+  await Promise.race([exited, new Promise((r) => setTimeout(r, 15_000))]);
+} catch (error) {
+  console.error(`FAILED: ${error.message}`);
+  console.error('The content script most likely threw before reporting.');
+  process.exitCode = 1;
+} finally {
+  if (child.exitCode === null) child.kill();
+  server.close();
+  rmSync(profile, { recursive: true, force: true });
+}
+
+if (report) {
+  console.log(JSON.stringify(report, null, 2));
+
+  const rowsGrew = report.rowHeightsAfter.some((h, i) => h > (report.rowHeightsBefore[i] ?? 0));
+
+  const checks = [
+    ['badges injected on both layouts', report.badgeCount === 5],
+    ['custom elements upgraded', report.upgraded === report.badgeCount && report.badgeCount > 0],
+    ['"Staff" row was skipped', report.badgeCount === 5],
+    ['badges stayed inside their cell', report.badgesInsideCell === true],
+    ['badges fit within their cell box', report.badgeFitsCell === true],
+    ['table row heights unchanged', rowsGrew === false],
+    ['no horizontal overflow', report.horizontalOverflow === false],
+    ['detail card opened', report.card.opened === true],
+    ['card sits below its badge', report.card.belowAnchor === true],
+    ['card stays within the viewport', report.card.withinViewport === true],
+    ['card clears the sidebar', report.card.clearOfSidebar === true],
+    ['sidebar mounted', report.sidebar.mounted === true],
+    ['sidebar ranked best-first', report.sidebar.scores?.[0] === '4.6'],
+    ['sidebar does not cover instructor names', report.instructorCellsVisible === true],
+  ];
+
+  console.log('');
+  let failed = 0;
+  for (const [label, ok] of checks) {
+    console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}`);
+    if (!ok) failed++;
+  }
+
+  console.log(`\nscreenshot: ${existsSync(shot) ? shot : '(not written)'}`);
+  if (failed > 0) {
+    console.error(`\n${failed} browser check(s) failed.`);
+    process.exitCode = 1;
+  } else {
+    console.log('\nAll browser checks passed.');
+  }
+}

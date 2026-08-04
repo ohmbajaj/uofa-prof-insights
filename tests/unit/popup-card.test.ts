@@ -244,6 +244,15 @@ describe('computePosition', () => {
   it('clamps to the left margin on a narrow viewport', () => {
     expect(computePosition(rect(5, 40), 200, 0, 0).left).toBe(8);
   });
+
+  it('keeps clear of a right-edge inset such as the sidebar', () => {
+    // 1200 viewport - 300 sidebar - 268 card - 8 margin = 624.
+    expect(computePosition(rect(900, 40), 1200, 0, 0, 300).left).toBe(624);
+  });
+
+  it('leaves a left-hand badge alone even with an inset', () => {
+    expect(computePosition(rect(100, 40), 1200, 0, 0, 300).left).toBe(100);
+  });
 });
 
 describe('card controller', () => {

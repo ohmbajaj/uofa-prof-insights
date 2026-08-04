@@ -33,6 +33,9 @@ function rowTexts(sidebar: UPISidebar): string[] {
 
 beforeEach(() => {
   document.body.innerHTML = '';
+  // The controller writes to body.style, which innerHTML does not reset.
+  document.body.removeAttribute('style');
+  delete document.body.dataset.upiPaddingRight;
   resetSidebarState();
   vi.spyOn(console, 'info').mockImplementation(() => {});
 });
@@ -225,6 +228,47 @@ describe('syncSidebar', () => {
 
     syncSidebar(document, { enabled: true, rows: two, loading: false });
     expect(document.querySelectorAll(SIDEBAR_TAG)).toHaveLength(1);
+  });
+});
+
+describe('syncSidebar — reserving page space', () => {
+  const two = [row('A Prof', 2.0), row('B Prof', 4.8)];
+
+  it('pads the body so the panel does not cover the page', () => {
+    syncSidebar(document, { enabled: true, rows: two, loading: false });
+    // jsdom reports 0 for getBoundingClientRect, so the constant is the floor.
+    expect(document.body.style.paddingRight).toBe('300px');
+  });
+
+  it('restores the original padding when torn down', () => {
+    document.body.style.paddingRight = '12px';
+
+    syncSidebar(document, { enabled: true, rows: two, loading: false });
+    syncSidebar(document, { enabled: false, rows: two, loading: false });
+
+    expect(document.body.style.paddingRight).toBe('12px');
+  });
+
+  it('restores empty padding when there was none', () => {
+    syncSidebar(document, { enabled: true, rows: two, loading: false });
+    syncSidebar(document, { enabled: false, rows: two, loading: false });
+
+    expect(document.body.style.paddingRight).toBe('');
+  });
+
+  it('does not stack padding across repeated syncs', () => {
+    syncSidebar(document, { enabled: true, rows: two, loading: false });
+    syncSidebar(document, { enabled: true, rows: two, loading: false });
+    syncSidebar(document, { enabled: true, rows: two, loading: false });
+
+    expect(document.body.style.paddingRight).toBe('300px');
+  });
+
+  it('releases the padding when the user dismisses it', () => {
+    const sidebar = syncSidebar(document, { enabled: true, rows: two, loading: false });
+    (sidebar?.shadowRoot?.querySelector('.close') as HTMLButtonElement).click();
+
+    expect(document.body.style.paddingRight).toBe('');
   });
 });
 

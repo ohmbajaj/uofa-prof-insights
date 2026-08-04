@@ -3,6 +3,7 @@ import {
   SIDEBAR_DISMISS_EVENT,
   SIDEBAR_SELECT_EVENT,
   SIDEBAR_TAG,
+  SIDEBAR_WIDTH,
   UPISidebar,
   defineSidebar,
 } from './components/ComparisonSidebar';
@@ -47,9 +48,42 @@ export function isDismissed(): boolean {
   return dismissed;
 }
 
+/** Where the original body padding is stashed while the sidebar is open. */
+const PADDING_BACKUP = 'upiPaddingRight';
+
+/**
+ * Reserves room for the panel by padding the page instead of floating over it.
+ *
+ * The sidebar is `position: fixed`, so without this it silently covers the
+ * right-hand columns — which in UAccess is the Instructor column, the one the
+ * badges are attached to. Measured rather than assumed, because the host style
+ * caps the width at 92vw on narrow windows.
+ */
+function reserveSpace(doc: Document, element: UPISidebar): void {
+  const body = doc.body;
+  if (!body) return;
+
+  if (body.dataset[PADDING_BACKUP] === undefined) {
+    body.dataset[PADDING_BACKUP] = body.style.paddingRight;
+  }
+  const width = element.getBoundingClientRect().width || SIDEBAR_WIDTH;
+  body.style.paddingRight = `${Math.round(width)}px`;
+}
+
+function releaseSpace(doc: Document): void {
+  const body = doc.body;
+  const original = body?.dataset[PADDING_BACKUP];
+  if (!body || original === undefined) return;
+
+  body.style.paddingRight = original;
+  delete body.dataset[PADDING_BACKUP];
+}
+
 export function removeSidebar(): void {
+  const doc = sidebar?.ownerDocument ?? document;
   sidebar?.remove();
   sidebar = null;
+  releaseSpace(doc);
 }
 
 /** Mounts, updates, or tears down the sidebar to match `options`. */
@@ -75,8 +109,10 @@ export function syncSidebar(doc: Document, options: SyncOptions): UPISidebar | n
     sidebar.addEventListener(SIDEBAR_DISMISS_EVENT, () => {
       dismissed = true;
       sidebar = null;
+      releaseSpace(doc);
     });
     doc.body.appendChild(sidebar);
+    reserveSpace(doc, sidebar);
   }
 
   sidebar.loading = loading;

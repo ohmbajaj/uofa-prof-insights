@@ -7,6 +7,9 @@ export const SIDEBAR_TAG = 'upi-sidebar';
 export const SIDEBAR_SELECT_EVENT = 'upi-sidebar-select';
 export const SIDEBAR_DISMISS_EVENT = 'upi-sidebar-dismiss';
 
+/** Keep in sync with the `width` in the host styles below. */
+export const SIDEBAR_WIDTH = 300;
+
 /** One row: a professor we resolved, or a name we could not match. */
 export interface ComparisonRow {
   name: string;
@@ -21,7 +24,7 @@ const STYLES = `
     z-index: 2147483646;
     display: flex;
     flex-direction: column;
-    width: 300px;
+    width: ${SIDEBAR_WIDTH}px;
     max-width: 92vw;
     height: 100%;
     background: #fff;
@@ -88,9 +91,28 @@ const STYLES = `
     text-align: center;
   }
 
-  .meta { min-width: 0; }
-  .meta .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .meta .sub { color: #666; font-size: 11px; }
+  /* Column, so the name and its subtitle stack instead of running together.
+     min-width:0 lets the ellipsis actually engage inside a flex item. */
+  .meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .meta .name {
+    display: block;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .meta .sub {
+    display: block;
+    color: #666;
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
   .empty { padding: 20px 14px; color: #666; text-align: center; }
 

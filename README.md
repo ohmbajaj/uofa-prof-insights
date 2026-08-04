@@ -8,9 +8,11 @@ UAccess, so you can see who's teaching a section without leaving registration.
 
 ## Status
 
-**Feature complete and packaged.** Every module is implemented, 300+ tests pass,
-and `npm run package` produces a Chrome Web Store-ready zip. Not yet verified in
-a real browser (see [Unverified](#unverified-in-a-real-browser)).
+**Feature complete, verified in Chrome, and packaged.** Every module is
+implemented, 301 tests pass, the built bundle is exercised in real headless
+Chrome (see [Browser verification](#browser-verification)), and `npm run
+package` produces a Chrome Web Store-ready zip. The remaining unknown is live
+UAccess markup, which needs a NetID login.
 
 | Layer                                         | State                             |
 | --------------------------------------------- | --------------------------------- |
@@ -74,6 +76,7 @@ npm run package     # build, then zip to release/ for the Web Store
 npm run icons       # regenerate src/assets/icon-*.png from source
 npm test            # unit tests (offline, deterministic)
 npm run test:live   # hits the real RMP API — run after any RMP schema change
+npm run verify:browser  # drives the built bundle in real headless Chrome
 npm run typecheck   # tsc --noEmit, strict
 npm run check       # typecheck + lint + format:check + test
 ```
@@ -141,24 +144,39 @@ from the `--`-delimited `ratingTags` string on individual ratings, via a second
 query. `fetchTopTags()` does this and degrades to `[]` rather than failing the
 whole lookup.
 
-## Unverified in a real browser
+## Browser verification
 
-Everything below is covered by automated tests in jsdom, which has no layout
-engine and no CSS. These need a human pass in Chrome:
+jsdom has no layout engine, so the unit suites cannot answer the questions that
+matter most for an in-page extension. `npm run verify:browser` runs the **real
+built bundle** in **real headless Chrome** against mock UAccess markup, takes
+measurements from the live page, and writes a screenshot to
+`release/verify/uaccess-mock.png`.
 
-- That the badge doesn't disturb the results grid's row heights or column
-  widths (the styles are built for this — `inline-flex`, `vertical-align:
-middle`, `em` sizing — but jsdom cannot confirm it).
-- That the shadow-root styles actually hold up against PeopleSoft's stylesheets.
-- That a custom element defined from a content script's isolated world upgrades
-  correctly in the page. This is a well-established pattern, but it is a real
-  Chrome behavior that no test here exercises.
-- Real UAccess ids. The selectors come from the two supplied snippets; live
-  PeopleSoft may carry extra instance suffixes.
-- Card and sidebar positioning. `computePosition` is unit-tested arithmetic, but
-  jsdom reports every `getBoundingClientRect()` as zero, so the real placement
-  has never been observed.
-- Whether the 300px sidebar crowds the UAccess results at common window widths.
+It asserts, among other things, that custom elements upgrade, that badges stay
+inside their table cell, that row heights are byte-identical before and after
+injection, that nothing overflows horizontally, and that neither the card nor
+the sidebar covers the instructor column.
+
+Two real bugs came out of looking at that screenshot, both invisible to the
+numeric checks:
+
+- The `position: fixed` sidebar **covered the Instructor column** — the very
+  column the badges attach to. `horizontalOverflow` was false the whole time,
+  because a fixed element overlays content instead of extending the page. The
+  sidebar now pads the body by its measured width, and a check pins it.
+- The sidebar's name and subtitle **ran together on one line**, because the
+  wrapper was an inline `<span>`. Now a flex column.
+
+### Still needs a human
+
+- **Real UAccess ids.** Selectors come from the two supplied snippets; live
+  PeopleSoft may carry extra instance suffixes. This is the one thing the
+  harness cannot stand in for, since it needs a NetID login.
+- **Chrome's isolated world.** The harness loads the bundle as a plain module,
+  which exercises the same custom-element upgrade path but not the extension
+  isolated world specifically.
+- Whether real UAccess CSS interacts with the shadow roots in ways the mock
+  stylesheet doesn't reproduce.
 
 ## Known gaps
 
