@@ -6,6 +6,7 @@ import type { DetectedProfessor } from './detector';
 import { injectBadges } from './injector';
 import { closeCard, updateOpenCard } from './card-controller';
 import { syncSidebar } from './sidebar-controller';
+import { syncFilterBar } from './filter-controller';
 import { CARD_REFRESH_EVENT } from './components/PopupCard';
 import { BADGE_CLICK_EVENT, BADGE_TAG } from './components/Badge';
 import type { BadgeData, UPIBadge } from './components/Badge';
@@ -65,6 +66,19 @@ function refreshRanks(): void {
   }
 }
 
+function refreshFilter(): void {
+  try {
+    syncFilterBar(document, {
+      enabled: settings.showFilterBar,
+      professors: detected,
+      results,
+      onChange: refreshFilter,
+    });
+  } catch (error) {
+    console.error('[UPI] filter update failed:', error);
+  }
+}
+
 function refreshSidebar(): void {
   const names = [...new Set(detected.map((p) => p.name))];
   const rows: ComparisonRow[] = names.map((name) => ({
@@ -110,6 +124,7 @@ async function resolveBadge(badge: UPIBadge, name: string, refresh = false): Pro
     console.error(`[UPI] lookup failed for "${name}":`, error);
   }
   refreshRanks();
+  refreshFilter();
   refreshSidebar();
 }
 
@@ -166,6 +181,7 @@ function onDetect(profs: DetectedProfessor[]): void {
     return;
   }
 
+  refreshFilter();
   refreshSidebar();
 
   for (const { badge, professor } of added) {

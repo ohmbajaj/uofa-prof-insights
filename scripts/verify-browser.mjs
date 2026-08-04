@@ -197,7 +197,7 @@ function harnessHtml(bundlePath) {
       sendMessage: (message) => new Promise((resolve) => {
         setTimeout(() => {
           if (message.type === 'GET_SETTINGS') {
-            return resolve({ type: 'SETTINGS', settings: { autoDetect: true, showComparison: true, cacheTTLDays: 7 } });
+            return resolve({ type: 'SETTINGS', settings: { autoDetect: true, showComparison: true, showFilterBar: true, cacheTTLDays: 7 } });
           }
           const hit = DB[message.name];
           resolve({
@@ -230,6 +230,40 @@ function harnessHtml(bundlePath) {
   const badges = [...document.querySelectorAll('upi-badge')];
   const table = document.querySelector('#CLASS_SRCH_WRK2_STRM\\\\$scroll\\\\$0');
   const rows = [...table.querySelectorAll('tr')];
+
+  // Exercise the rating filter: 3.5+ should leave only O'Brien's section.
+  const countVisibleRows = () =>
+    rows.filter((r) => r.style.display !== 'none' && r.querySelector('td')).length;
+  const rowsBeforeFilter = countVisibleRows();
+
+  const filterBar = document.querySelector('upi-filter');
+  const filterButtons = filterBar
+    ? [...filterBar.shadowRoot.querySelectorAll('.group button')].map((b) => b.textContent)
+    : [];
+  if (filterBar) {
+    [...filterBar.shadowRoot.querySelectorAll('.group button')]
+      .find((b) => b.textContent === '3.5+')?.click();
+    await sleep(120);
+  }
+  // Mercer (2.9) and Debray (3.4) go; O'Brien (4.6) and the unrated "Staff"
+  // row stay, because "Keep unrated" is on by default.
+  const rowsAfterFilter = countVisibleRows();
+
+  // Now drop unrated sections too — that should leave O'Brien alone.
+  if (filterBar) {
+    filterBar.shadowRoot.querySelector('input[type="checkbox"]').click();
+    await sleep(120);
+  }
+  const rowsRatedOnly = countVisibleRows();
+
+  // Put everything back so the screenshot shows the full table.
+  if (filterBar) {
+    filterBar.shadowRoot.querySelector('input[type="checkbox"]').click();
+    [...filterBar.shadowRoot.querySelectorAll('.group button')]
+      .find((b) => b.textContent === 'All')?.click();
+    await sleep(120);
+  }
+  const rowsRestored = countVisibleRows();
 
   // Open a card so its real, laid-out position can be measured.
   const first = badges.find((b) => b.closest('td'));
@@ -290,6 +324,15 @@ function harnessHtml(bundlePath) {
       const withPill = badges.find((b) => (b.shadowRoot?.textContent ?? '').includes('BEST'));
       return withPill ? withPill.dataset.upiName : null;
     })(),
+    filter: {
+      mounted: !!filterBar,
+      buttons: filterButtons,
+      aboveResults: filterBar ? filterBar.nextElementSibling?.tagName === 'TABLE' : false,
+      rowsBeforeFilter,
+      rowsAfterFilter,
+      rowsRatedOnly,
+      rowsRestored,
+    },
     sidebar: sidebar ? {
       mounted: true,
       width: Math.round(sidebar.getBoundingClientRect().width),
@@ -559,6 +602,17 @@ if (report) {
     ['exactly one BEST pill', report.bestPills === 1],
     ['BEST pill sits on the top-rated instructor', report.bestPillOnTopRated === "Sean O'Brien"],
 
+    ['filter bar mounted above the results', report.filter.aboveResults === true],
+    ['filter offers rating thresholds', report.filter.buttons?.join(',') === 'All,2.5+,3.5+,4+'],
+    // 4 sections -> 3.5+ drops Mercer (2.9) and Debray (3.4), keeping O'Brien
+    // (4.6) and the unrated "Staff" row.
+    ['3.5+ hides the lower-rated sections', report.filter.rowsAfterFilter === 2],
+    ['unchecking "keep unrated" also drops the Staff row', report.filter.rowsRatedOnly === 1],
+    [
+      'clearing the filter restores every row',
+      report.filter.rowsRestored === report.filter.rowsBeforeFilter,
+    ],
+
     ['popup mounted', popup?.mounted === true],
     ['popup shows both tabs', popup?.tabs?.join(',') === 'Status,Settings'],
     ['popup stylesheet applied', popup?.styled === 'rgb(12, 35, 75)'],
@@ -567,7 +621,7 @@ if (report) {
     ['popup result shows difficulty', popup?.showsDifficulty === true],
     ['popup result shows tags', popup?.showsTags === true],
 
-    ['settings tab renders all three controls', settings?.settingsControls?.length === 3],
+    ['settings tab renders all four controls', settings?.settingsControls?.length === 4],
     ['settings reflects stored autoDetect', settings?.autoDetectChecked === true],
     ['settings reflects stored TTL', settings?.ttlValue === '7'],
   ];

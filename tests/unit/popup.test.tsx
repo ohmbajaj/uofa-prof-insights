@@ -167,7 +167,12 @@ describe('Settings page', () => {
     installRuntime({
       GET_SETTINGS: async () => ({
         type: 'SETTINGS',
-        settings: { autoDetect: false, showComparison: true, cacheTTLDays: 14 },
+        settings: {
+          autoDetect: false,
+          showComparison: true,
+          showFilterBar: true,
+          cacheTTLDays: 14,
+        },
       }),
     });
     render(<Settings />);

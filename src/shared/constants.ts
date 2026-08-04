@@ -31,6 +31,7 @@ export const SETTINGS_STORAGE_KEY = 'upi_settings';
 export const DEFAULT_SETTINGS = {
   autoDetect: true,
   showComparison: true,
+  showFilterBar: true,
   cacheTTLDays: DEFAULT_CACHE_TTL_DAYS,
 } as const;
 

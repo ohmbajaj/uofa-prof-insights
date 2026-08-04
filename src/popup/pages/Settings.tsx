@@ -89,6 +89,24 @@ export default function Settings() {
       </div>
 
       <div className="field">
+        <input
+          id="showFilterBar"
+          type="checkbox"
+          checked={settings.showFilterBar}
+          onChange={(e) => void save({ showFilterBar: e.target.checked })}
+        />
+        <div className="field__text">
+          <label className="field__label" htmlFor="showFilterBar">
+            Show rating filter
+          </label>
+          <div className="field__hint">
+            Adds controls above the results for hiding sections whose instructor falls below a
+            rating you choose.
+          </div>
+        </div>
+      </div>
+
+      <div className="field">
         <div className="field__text">
           <label className="field__label" htmlFor="cacheTTLDays">
             Keep ratings for
