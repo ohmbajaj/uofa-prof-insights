@@ -38,7 +38,11 @@ async function mapWithConcurrency<T, R>(
  * Returns null both for "no such professor" and for a failed fetch — callers
  * that need to tell those apart should use the thrown-error path in rmp-api.
  */
-export async function lookup(rawName: string, forceRefresh = false): Promise<ProfessorData | null> {
+export async function lookup(
+  rawName: string,
+  forceRefresh = false,
+  fuzzy = false,
+): Promise<ProfessorData | null> {
   const name = normalizeNameForRMP(rawName);
   const key = normalizeCacheKey(name);
 
@@ -57,7 +61,7 @@ export async function lookup(rawName: string, forceRefresh = false): Promise<Pro
 
   const request = (async () => {
     try {
-      const data = await searchProfessor(name);
+      const data = await searchProfessor(name, { fuzzy });
       if (data) await cache.set(key, data);
       void stats.bumpStats({ lookups: 1, ...(data ? { matches: 1 } : { misses: 1 }) });
       return data;
@@ -81,7 +85,7 @@ export async function handleMessage(message: OutgoingMessage): Promise<IncomingM
         return {
           type: 'PROFESSOR_RESULT',
           name: message.name,
-          data: await lookup(message.name),
+          data: await lookup(message.name, false, message.fuzzy ?? false),
         };
 
       case 'REFRESH_PROFESSOR':

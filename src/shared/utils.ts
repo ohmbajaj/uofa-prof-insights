@@ -35,6 +35,42 @@ export function normalizeNameForRMP(uaccessName: string): string {
 }
 
 /**
+ * How a page writes instructor names, which decides what a comma means.
+ *
+ * `surname-first` — classic class search: one name as "Mercer, Richard".
+ * `natural-list`  — Class Schedule cards: several already-natural names in one
+ *                   string, "Ratchaneekorn Thamvichai, Na Liu".
+ *
+ * The two are genuinely ambiguous as strings, and guessing gets it wrong:
+ * reading the second as surname-first yields "Na Thamvichai", a person who
+ * does not exist. Each detector knows which convention its own page uses, so
+ * the format is passed in rather than inferred.
+ */
+export type NameFormat = 'surname-first' | 'natural-list';
+
+/**
+ * Splits one instructor field into normalized, natural-order names.
+ *
+ *   surname-first: "Smith, John A"                   -> ["John Smith"]
+ *   natural-list:  "Ratchaneekorn Thamvichai, Na Liu" -> both names, unchanged
+ *
+ * Returns an empty array when nothing usable is present.
+ */
+export function parseInstructorField(raw: string, format: NameFormat): string[] {
+  const trimmed = raw.trim().replace(/\s+/g, ' ');
+  if (!trimmed) return [];
+
+  if (format === 'natural-list') {
+    return trimmed
+      .split(/\s*[,;]\s*|\s+&\s+|\s+and\s+/i)
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
+
+  return [normalizeNameForRMP(trimmed)].filter(Boolean);
+}
+
+/**
  * Badge color for an overall rating.
  * >= 3.5 green, >= 2.5 amber, below that red, and gray when unrated.
  */

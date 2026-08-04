@@ -46,7 +46,11 @@ export default function Status() {
   const onSearch = useCallback(async (name: string) => {
     setSearch({ status: 'busy' });
     try {
-      const reply = await sendMessage({ type: 'LOOKUP_PROFESSOR', name }, 'PROFESSOR_RESULT');
+      // Typed by a person, so tolerate a misspelling or a truncated surname.
+      const reply = await sendMessage(
+        { type: 'LOOKUP_PROFESSOR', name, fuzzy: true },
+        'PROFESSOR_RESULT',
+      );
       setSearch(reply.data ? { status: 'found', data: reply.data } : { status: 'missing', name });
     } catch (err) {
       setSearch({ status: 'failed', message: err instanceof Error ? err.message : String(err) });

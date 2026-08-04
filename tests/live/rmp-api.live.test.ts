@@ -70,6 +70,30 @@ describe.skipIf(!live)('rmp-api (live)', () => {
     );
   }, 30_000);
 
+  /**
+   * A hand-typed query should survive a truncated or misspelled surname.
+   * Badge lookups stay strict; only the popup's search box passes `fuzzy`.
+   */
+  it('tolerates a typo in a hand-typed search', async () => {
+    const exact = await searchProfessor('Ratchaneekorn Thamvichai');
+    expect(exact?.name).toBe('Ratchaneekorn Thamvichai');
+
+    // Two letters dropped from the surname.
+    const truncated = await searchProfessor('Ratchaneekorn Thamvich', { fuzzy: true });
+    expect(truncated?.name).toBe('Ratchaneekorn Thamvichai');
+
+    // A transposed letter.
+    const typo = await searchProfessor('Ratchaneekorn Thmavichai', { fuzzy: true });
+    expect(typo?.name).toBe('Ratchaneekorn Thamvichai');
+
+    console.log('[live] fuzzy:', `truncated -> ${truncated?.name}, typo -> ${typo?.name}`);
+  }, 45_000);
+
+  it('does not guess when fuzzy matching is off', async () => {
+    // The strict path must never resolve a misspelling.
+    await expect(searchProfessor('Ratchaneekorn Thamvich')).resolves.toBeNull();
+  }, 30_000);
+
   it('derives per-course ratings from real review data', async () => {
     const prof = await searchProfessor('Rick Mercer');
 

@@ -2,7 +2,8 @@ import type { ExtensionSettings, ProfessorData, RecentProfessor, UsageStats } fr
 
 // Content Script / Popup -> Service Worker
 export type OutgoingMessage =
-  | { type: 'LOOKUP_PROFESSOR'; name: string }
+  /** `fuzzy` is for the popup's typed search only; badge lookups must stay strict. */
+  | { type: 'LOOKUP_PROFESSOR'; name: string; fuzzy?: boolean }
   | { type: 'LOOKUP_BATCH'; names: string[] }
   | { type: 'GET_CACHE_STATS' }
   | { type: 'CLEAR_CACHE' }

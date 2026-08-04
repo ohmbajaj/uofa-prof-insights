@@ -24,7 +24,17 @@ describe('lookup', () => {
   it('normalizes a UAccess name before querying RMP', async () => {
     searchProfessor.mockResolvedValue(makeProfessor({ name: 'Rick Mercer' }));
     await lookup('Mercer, Rick A');
-    expect(searchProfessor).toHaveBeenCalledWith('Rick Mercer');
+    expect(searchProfessor).toHaveBeenCalledWith('Rick Mercer', { fuzzy: false });
+  });
+
+  it('keeps badge lookups strict, and only opts the popup into fuzzy matching', async () => {
+    searchProfessor.mockResolvedValue(null);
+
+    await lookup('Mercer, Rick');
+    expect(searchProfessor).toHaveBeenLastCalledWith('Rick Mercer', { fuzzy: false });
+
+    await lookup('Thamvich', false, true);
+    expect(searchProfessor).toHaveBeenLastCalledWith('Thamvich', { fuzzy: true });
   });
 
   it('serves the second call from cache', async () => {

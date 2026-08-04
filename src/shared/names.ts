@@ -155,6 +155,63 @@ export function givenNamesMatch(a: string, b: string): boolean {
   return false;
 }
 
+/**
+ * Levenshtein distance, capped so a hopeless pair bails out early.
+ *
+ * Used only for the popup's manual search. Badge lookups stay strict: they read
+ * a machine-generated roster, where a near-miss means the wrong professor, and
+ * a wrong rating is worse than none. A human typing into a search box is a
+ * different situation — dropping two letters should still find the person.
+ */
+export function editDistance(a: string, b: string, max = 3): number {
+  if (a === b) return 0;
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+
+  let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
+
+  for (let i = 1; i <= a.length; i++) {
+    const current = [i];
+    let best = i;
+
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      const value = Math.min(
+        (current[j - 1] ?? 0) + 1,
+        (previous[j] ?? 0) + 1,
+        (previous[j - 1] ?? 0) + cost,
+      );
+      current[j] = value;
+      if (value < best) best = value;
+    }
+
+    if (best > max) return max + 1;
+    previous = current;
+  }
+
+  return previous[b.length] ?? max + 1;
+}
+
+/**
+ * True when `typed` is plausibly a sloppy rendering of `actual`.
+ *
+ * Accepts a prefix ("Thamvich" for "Thamvichai") or a small number of
+ * character errors, scaled to the length of the word so short names are not
+ * matched loosely.
+ */
+export function looselyMatches(typed: string, actual: string): boolean {
+  const a = comparableName(typed);
+  const b = comparableName(actual);
+  if (!a || !b) return false;
+  if (a === b) return true;
+
+  // A prefix of at least four characters — covers truncated typing.
+  if (b.startsWith(a) && a.length >= 4) return true;
+  if (a.startsWith(b) && b.length >= 4) return true;
+
+  const tolerance = b.length >= 8 ? 3 : b.length >= 5 ? 2 : 1;
+  return editDistance(a, b, tolerance) <= tolerance;
+}
+
 /** Splits a natural-order name into given name and the rest ("Van Horn" stays whole). */
 export function splitName(name: string): { first: string; last: string } {
   const parts = comparableName(name).split(' ').filter(Boolean);

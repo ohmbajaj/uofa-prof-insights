@@ -9,7 +9,7 @@ import {
   TAG_SAMPLE_SIZE,
   UOFA_SCHOOL_ID,
 } from '@shared/constants';
-import { comparableName, givenNamesMatch, splitName } from '@shared/names';
+import { comparableName, givenNamesMatch, looselyMatches, splitName } from '@shared/names';
 import { normalizeCourseCode } from '@shared/utils';
 import type { AlternateProfile, CourseRating, MatchConfidence, ProfessorData } from '@shared/types';
 
@@ -349,7 +349,53 @@ function dedupeById(nodes: TeacherNode[]): TeacherNode[] {
   return [...seen.values()];
 }
 
-export async function searchProfessor(name: string): Promise<ProfessorData | null> {
+/**
+ * Best loose match for a name a human typed, used only when strict matching
+ * has already failed. Ranks by how well the surname matches, then by evidence.
+ */
+export function selectLooseMatch(nodes: TeacherNode[], name: string): ProfessorMatch | null {
+  const { first, last } = splitName(name);
+  if (!last) return null;
+
+  const candidates = nodes.filter((n) => {
+    if (!looselyMatches(last, n.lastName ?? '')) return false;
+    // With no given name to go on, a surname match is enough.
+    if (!first) return true;
+    return givenNamesMatch(n.firstName ?? '', first) || looselyMatches(first, n.firstName ?? '');
+  });
+
+  if (candidates.length === 0) return null;
+
+  const ranked = [...candidates].sort((a, b) => {
+    const exactA = comparableName(a.lastName ?? '') === last ? 1 : 0;
+    const exactB = comparableName(b.lastName ?? '') === last ? 1 : 0;
+    if (exactA !== exactB) return exactB - exactA;
+    return (b.numRatings ?? 0) - (a.numRatings ?? 0);
+  });
+
+  const [best, ...alternates] = ranked;
+  if (!best) return null;
+
+  return {
+    node: best,
+    alternates,
+    confidence: comparableName(best.firstName ?? '') === first ? 'exact' : 'nickname',
+  };
+}
+
+export interface SearchOptions {
+  /**
+   * Allow approximate name matching. Intended for the popup's manual search,
+   * where the user is typing; never for badge lookups, which read a roster and
+   * must not guess.
+   */
+  fuzzy?: boolean;
+}
+
+export async function searchProfessor(
+  name: string,
+  options: SearchOptions = {},
+): Promise<ProfessorData | null> {
   const trimmed = name.trim();
   if (!trimmed) return null;
 
@@ -378,6 +424,11 @@ export async function searchProfessor(name: string): Promise<ProfessorData | nul
   if (!match || (truncated && match.confidence !== 'exact')) {
     candidates = dedupeById([...candidates, ...(await fetchCandidates(trimmed))]);
     match = selectMatch(candidates, trimmed);
+  }
+
+  // Last resort for a hand-typed query: accept a near-miss surname.
+  if (!match && options.fuzzy) {
+    match = selectLooseMatch(candidates, trimmed);
   }
 
   if (!match) return null;
