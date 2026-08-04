@@ -1,31 +1,60 @@
+<img src="docs/screenshots/icon.png" width="72" align="right" alt="">
+
 # UofA Prof Insights
 
-A Chrome extension (Manifest V3) that shows RateMyProfessor ratings inline inside
-UAccess, so you can see who's teaching a section without leaving registration.
+**RateMyProfessor ratings inline in UAccess, so you can pick a section without
+leaving registration.**
 
-> **Just want to install it?** See **[INSTALL.md](INSTALL.md)** — no coding
-> required. This file is the developer documentation.
+A Chrome extension (Manifest V3) for University of Arizona students. It reads
+instructor names off the class search page, resolves them to the right
+RateMyProfessors profile, and renders ratings next to each section — plus the
+things a browser tab open on RateMyProfessors structurally cannot do: rank every
+instructor on the page against each other, break a rating down by course, and
+hide sections below a threshold.
+
+[Install](INSTALL.md) · [Privacy](PRIVACY.md) · 371 tests · verified in headless Chrome
+
+![Rating badges, detail card and comparison sidebar in UAccess class search](docs/screenshots/uaccess.png)
+
+_Badges sit inside the Instructor column; the card breaks the rating down by
+course and discloses duplicate profiles; the sidebar ranks the page._
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/popup.png" alt="Popup Status tab"></td>
+<td width="50%"><img src="docs/screenshots/settings.png" alt="Popup Settings tab"></td>
+</tr>
+</table>
+
+## Why not just Google the professor?
+
+For one professor, this saves about fifteen seconds. That is not the argument.
+
+**Googling is often wrong, invisibly.** UAccess lists an instructor as
+"Mercer, Richard". The top RateMyProfessors result for that name is a
+**Richard Mercer at Wright State University in Ohio, with 63 ratings** — nothing
+on the page tells a student they are reading about the wrong person. Meanwhile
+UofA's Computer Science department has three Mercers, and the profile carrying
+this professor's 164 ratings is filed under "**Rick**".
+
+Beyond correctness, three things only work from inside the results page:
+
+- **A class search returns 8–20 instructors.** Checking each by hand means
+  losing your place in the results, twenty times, during a registration window
+  where seats disappear in minutes.
+- **The question is comparative** — "which of these eight", not "is this one
+  good". Nobody holds eight ratings in their head.
+- **Course-specific ratings.** A professor can be strong in a survey course and
+  punishing in a seminar. Getting that from the website means reading 164
+  reviews by hand.
 
 ## Status
 
-**Feature complete, verified in Chrome, and packaged.** Every module is
-implemented, 301 tests pass, the built bundle is exercised in real headless
-Chrome (see [Browser verification](#browser-verification)), and `npm run
-package` produces a Chrome Web Store-ready zip. The remaining unknown is live
-UAccess markup, which needs a NetID login.
-
-| Layer                                         | State                             |
-| --------------------------------------------- | --------------------------------- |
-| `src/shared/*`                                | Done, tested                      |
-| `src/background/rmp-api.ts`                   | Done, tested against the live API |
-| `src/background/cache.ts`                     | Done, tested                      |
-| `src/background/message-handler.ts`           | Done, tested                      |
-| `src/content/detector*.ts`                    | Done, tested (both layouts)       |
-| `src/content/components/Badge.ts`             | Done, tested                      |
-| `src/content/injector.ts`                     | Done, tested                      |
-| `src/content/components/PopupCard.ts`         | Done, tested                      |
-| `src/content/components/ComparisonSidebar.ts` | Done, tested                      |
-| `src/popup/*` (Status, Settings, Search)      | Done, tested                      |
+**Feature complete, verified in Chrome, and packaged.** 371 tests pass, the
+built bundle is exercised in real headless Chrome (see
+[Browser verification](#browser-verification)), and `npm run package` produces a
+Chrome Web Store-ready zip. The remaining unknown is live UAccess markup, which
+needs a NetID login.
 
 ## How it works
 
@@ -54,8 +83,17 @@ page is still covered.
 - **Comparison sidebar** ranking every instructor on the results page,
   best-first. Only appears with two or more instructors, since one has nothing
   to compare against. Clicking a row scrolls to that badge.
-- **Popup** with a manual professor search, cache stats, and settings
-  (`autoDetect`, `showComparison`, `cacheTTLDays`).
+- **Rating filter** above the results: hide sections whose instructor falls below
+  a threshold, with a live count. Co-taught sections survive if any instructor
+  passes; "Staff" rows count as unrated.
+- **Per-course ratings** on the card, with the course being browsed pinned first
+  — derived from review data the tags query already downloaded.
+- **Duplicate-profile disclosure.** Where two RMP profiles look like the same
+  person, the better-evidenced one is shown and the others are listed.
+- **Page ranking.** Each badge knows its standing among the rated instructors on
+  the page; the top pick gets a BEST pill.
+- **Popup** with a manual professor search, recently viewed professors, a
+  local-only usage tally, and settings.
 - **Retry and refresh.** An errored badge refetches when clicked, and the card's
   Refresh button re-pulls a stale record. Both bypass the cache via
   `REFRESH_PROFESSOR`, since a failed lookup is deliberately never cached and a
@@ -66,6 +104,58 @@ page is still covered.
 
 All in-page UI is shadow-DOM encapsulated, so PeopleSoft's stylesheets cannot
 reach in and our styles cannot leak out.
+
+## Engineering problems worth writing down
+
+Five findings that changed the design, each verified against the live API rather
+than assumed.
+
+### 1. The school ID everyone cites is UCLA
+
+`U2Nob29sLTEwNzU=` (base64 `School-1075`) is widely quoted as University of
+Arizona. It is **UCLA**. It fails silently: a search for "Rick Mercer" returns
+"Rick Miller, Geography, UCLA" — plausible-looking data from the wrong
+university. UofA is `School-1402`.
+
+### 2. Searching a full name buries the person you want
+
+RMP ranks results by _given_ name. Querying `"Richard Mercer"` returns ten
+unrelated Richards from across campus and **omits every Mercer**. Querying
+`"Mercer"` returns exactly the three. Lookups therefore search by surname and
+match locally, falling back to the full name only when a surname page comes back
+empty or truncated.
+
+### 3. A given name maps to a set, not a canonical form
+
+The first version of the nickname table kept one binding per short form, which
+mapped "Rick" to Frederick purely because it sorted earlier — so Rick never
+matched Richard, the exact case the table existed for. Pat/Patrick and
+Steve/Stephen broke the same way. Names now resolve to the _set_ of formal names
+they could stand for, and two names match when those sets intersect. The
+relation is deliberately not transitive: Pat matches both Patrick and Patricia,
+which never match each other.
+
+### 4. Rating fields use sentinels, and the tags field is a lie
+
+`avgRating` is `0` for unrated professors and `wouldTakeAgainPercent` is `-1`
+for "no data" — both mapped to `null`, while a genuine `0%` is preserved.
+`Teacher.teacherRatingTags` returns an empty array even on a direct node lookup;
+tags have to be tallied client-side from a `--`-delimited string on individual
+ratings. That same query already carried each review's course and scores, which
+is where the per-course breakdown comes from at no extra cost.
+
+### 5. A colspan in the results grid shifts the instructor column
+
+UAccess merges "Start/End Date" and "Days & Times" into one `colspan="2"` cell,
+so the instructor `<td>` sits one index left of its `<th>`. Walking raw child
+indexes lands on Units and badges every row with "4.000". Column resolution
+accounts for colspan and accepts only `<td>`.
+
+A sixth was caught only by looking at a screenshot: the `position: fixed`
+comparison sidebar **covered the Instructor column** — the column the badges
+attach to — while every overflow assertion passed, because a fixed element
+overlays content instead of extending the page. The sidebar now reserves its
+width by padding the body.
 
 ## Commands
 
@@ -179,6 +269,14 @@ numeric checks:
   isolated world specifically.
 - Whether real UAccess CSS interacts with the shadow roots in ways the mock
   stylesheet doesn't reproduce.
+
+## Privacy
+
+Nothing about the user is collected or transmitted. The only outbound request is
+a professor's name to RateMyProfessors; cache, recents and usage counters live in
+`chrome.storage.local` and never leave the browser. Usage counters are
+deliberately local rather than server-side — the privacy claim is worth more than
+aggregate analytics. Full policy: [PRIVACY.md](PRIVACY.md).
 
 ## Known gaps
 

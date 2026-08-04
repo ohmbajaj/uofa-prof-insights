@@ -66,9 +66,16 @@ the most common tags, and a link to the RateMyProfessor page. **Refresh** in the
 card's corner refetches if the data looks stale. Press **Escape** or click
 elsewhere to close.
 
+**The rating filter** sits above the results. Pick a threshold (2.5+, 3.5+, 4+)
+and sections taught by lower-rated instructors are hidden, with a count of
+what's left. A section co-taught by someone good stays visible. Untick **Keep
+unrated** to also hide "Staff" sections and instructors with no RMP page.
+
 **The comparison sidebar** appears on the right when a search returns two or
 more instructors, ranking them best-first. Click any row to jump to that
 section. Close it with the × — it stays closed until your next page load.
+
+**A BEST pill** marks the highest-rated instructor on the page.
 
 **The toolbar popup** has a search box for looking up any professor directly,
 plus your cache stats and settings.
@@ -81,7 +88,11 @@ Click the extension icon, then the **Settings** tab:
 | ------------------------------ | ---------------------------------------------------------------------- |
 | **Show ratings automatically** | Off leaves UAccess completely untouched; use the popup search instead. |
 | **Show comparison sidebar**    | Off hides the right-hand panel permanently.                            |
+| **Show rating filter**         | Off hides the filter controls above the results.                       |
 | **Keep ratings for**           | Days before a rating is re-fetched. Default 7, range 1–90.             |
+
+Settings also holds **Clear cache** (forget all stored ratings) and **Clear
+history** (forget recently viewed professors and usage counts).
 
 ---
 
@@ -124,10 +135,13 @@ then reload the extension at `chrome://extensions`.
 - Nothing about you is collected, stored, or transmitted anywhere.
 - The extension talks to exactly one external service: RateMyProfessors.com, to
   look up the instructor names shown on your screen. Nothing else is sent.
-- Cached ratings live only in your own browser. **Clear cache** deletes them.
+- Cached ratings, recently viewed professors and usage counts live only in your
+  own browser. Settings has buttons to erase both.
 - It runs only on UAccess pages, and reads only instructor names — it cannot see
   your grades, schedule, financial aid, or anything else in your account.
 - It requests no permission to read or change data on other websites.
+
+Full details: [PRIVACY.md](PRIVACY.md).
 
 ## Fair warning
 
