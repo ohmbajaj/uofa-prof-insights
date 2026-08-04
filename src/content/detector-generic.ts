@@ -114,24 +114,34 @@ function sitsBesideACourseCode(element: HTMLElement): boolean {
 }
 
 /**
- * Elements whose entire text is one instructor field.
+ * Text runs that could be an instructor field, with the element holding them.
  *
- * Leaf-ish elements only: if a child already contains the same text, the child
- * is the real owner and the parent would produce a duplicate.
+ * Scans text nodes rather than elements. Modern UAccess renders an instructor
+ * as an icon followed by a bare text node —
+ * `<span><i class="icon-person"></i>Ratchaneekorn Thamvichai, Na Liu</span>` —
+ * so reading whole elements works only when the name happens to sit in a
+ * dedicated wrapper. A text node is the actual unit either way.
  */
-function candidateElements(doc: Document): HTMLElement[] {
-  const out: HTMLElement[] = [];
+export interface TextCandidate {
+  element: HTMLElement;
+  text: string;
+}
 
-  for (const element of doc.querySelectorAll<HTMLElement>('div, span, td, li, p, a')) {
-    const text = element.textContent?.trim() ?? '';
-    if (!text || text.length > 120) continue;
+export function candidateTextRuns(doc: Document): TextCandidate[] {
+  const out: TextCandidate[] = [];
+  const walker = doc.createTreeWalker(doc.body ?? doc, NodeFilter.SHOW_TEXT);
+
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const text = (node.textContent ?? '').trim().replace(/\s+/g, ' ');
+    if (!text || text.length < 5 || text.length > 120) continue;
+
+    const element = node.parentElement;
+    if (!element) continue;
     if (element.closest(EXCLUDED_ANCESTORS)) continue;
+    // Script and style content is text too.
+    if (element.tagName === 'SCRIPT' || element.tagName === 'STYLE') continue;
 
-    // Skip if a descendant carries the same text — that descendant wins.
-    const child = [...element.children].find((c) => (c.textContent?.trim() ?? '') === text);
-    if (child) continue;
-
-    out.push(element);
+    out.push({ element, text });
   }
 
   return out;
@@ -141,15 +151,14 @@ export function detectProfessorsGeneric(doc: Document): DetectedProfessor[] {
   const found: DetectedProfessor[] = [];
   const claimed = new Set<HTMLElement>();
 
-  for (const element of candidateElements(doc)) {
-    const raw = element.textContent?.trim() ?? '';
+  for (const { element, text } of candidateTextRuns(doc)) {
+    if (claimed.has(element)) continue;
 
     // Modern UAccess views write names in natural order, several to a field.
-    const names = parseInstructorField(raw, 'natural-list');
+    const names = parseInstructorField(text, 'natural-list');
     if (names.length === 0) continue;
     if (!names.every(looksLikePerson)) continue;
     if (!sitsBesideACourseCode(element)) continue;
-    if (claimed.has(element)) continue;
 
     claimed.add(element);
     const courseCode = courseCodeNear(element);
@@ -158,7 +167,7 @@ export function detectProfessorsGeneric(doc: Document): DetectedProfessor[] {
       found.push({
         element,
         name,
-        rawName: raw,
+        rawName: text,
         ...(courseCode ? { courseCode } : {}),
       });
     }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { MAX_CACHE_TTL_DAYS, MIN_CACHE_TTL_DAYS } from '@shared/constants';
 import { sendMessage } from '@shared/messaging';
 import type { ExtensionSettings } from '@shared/types';
+import Diagnostics from '../components/Diagnostics';
 
 /** Whole days, since the cache TTL is expressed in days. */
 function formatAge(ms: number): string {
@@ -206,6 +207,8 @@ export default function Settings() {
           Clear history
         </button>
       </div>
+
+      <Diagnostics />
 
       {error && <p className="notice notice--error">{error}</p>}
       <p className="notice" hidden={!saved} role="status">

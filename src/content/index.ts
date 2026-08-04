@@ -8,6 +8,7 @@ import { closeCard, updateOpenCard } from './card-controller';
 import { syncSidebar } from './sidebar-controller';
 import { syncFilterBar } from './filter-controller';
 import { CARD_REFRESH_EVENT } from './components/PopupCard';
+import { collectDiagnostics } from './diagnostics';
 import { BADGE_CLICK_EVENT, BADGE_TAG } from './components/Badge';
 import type { BadgeData, UPIBadge } from './components/Badge';
 import type { ComparisonRow } from './components/ComparisonSidebar';
@@ -241,6 +242,24 @@ async function main(): Promise<void> {
     console.error('[UPI] failed to start:', error);
   }
 }
+
+/**
+ * Answers the popup's "Diagnose this page" request.
+ *
+ * Registered unconditionally, outside `main()`, so it still replies when
+ * autoDetect is off or startup failed — those are exactly the cases someone
+ * would be diagnosing.
+ */
+chrome.runtime?.onMessage?.addListener((message, _sender, sendResponse) => {
+  if ((message as { type?: string })?.type !== 'DIAGNOSE_PAGE') return undefined;
+
+  try {
+    sendResponse({ type: 'DIAGNOSTICS', diagnostics: collectDiagnostics(document) });
+  } catch (error) {
+    sendResponse({ type: 'ERROR', message: String(error) });
+  }
+  return true;
+});
 
 /**
  * The manifest uses `run_at: document_idle`, which normally fires after

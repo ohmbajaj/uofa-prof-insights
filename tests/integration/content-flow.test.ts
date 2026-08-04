@@ -123,7 +123,9 @@ function installRuntime(
     }
     return reply(message);
   });
-  vi.stubGlobal('chrome', { runtime: { sendMessage } });
+  vi.stubGlobal('chrome', {
+    runtime: { sendMessage, onMessage: { addListener: vi.fn() } },
+  });
   return sendMessage;
 }
 
@@ -382,7 +384,9 @@ describe('content script — error handling', () => {
       if (message.type === 'GET_SETTINGS') throw new Error('worker asleep');
       return { type: 'PROFESSOR_RESULT', name: 'x', data: professor() };
     });
-    vi.stubGlobal('chrome', { runtime: { sendMessage } });
+    vi.stubGlobal('chrome', {
+      runtime: { sendMessage, onMessage: { addListener: vi.fn() } },
+    });
 
     await loadContentScript();
     await flush();

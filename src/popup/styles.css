@@ -316,6 +316,37 @@ button.btn--danger {
   font-size: 11px;
 }
 
+.diag {
+  margin: 8px 0 0;
+  font-size: 11px;
+}
+
+.diag > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--upi-border);
+}
+
+.diag dt {
+  color: var(--upi-muted);
+}
+
+.diag dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
+.diag-list {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  color: var(--upi-muted);
+  font-size: 11px;
+  word-break: break-word;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

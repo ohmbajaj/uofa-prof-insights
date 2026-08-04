@@ -74,6 +74,54 @@ describe('detectProfessorsGeneric — Class Schedule cards', () => {
   });
 });
 
+describe('detectProfessorsGeneric — real Student Center markup shapes', () => {
+  /**
+   * The shape actually used by studentcenter.arizona.edu: an icon element
+   * followed by a bare text node, with no wrapper around the name. Scanning
+   * whole elements misses this, which is why detection walks text nodes.
+   */
+  it('finds a name sitting as a bare text node beside an icon', () => {
+    document.body.innerHTML = `
+      <div class="card">
+        <h2>ECE 201 - Programming 2</h2>
+        <div class="meta">
+          <span><i class="icon-place"></i>Gittings Bldg, Rm 201</span>
+          <span><i class="icon-person"></i>Ratchaneekorn Thamvichai, Na Liu</span>
+        </div>
+      </div>`;
+
+    const names = detectProfessorsGeneric(document).map((p) => p.name);
+    expect(names).toEqual(['Ratchaneekorn Thamvichai', 'Na Liu']);
+  });
+
+  it('anchors the badge on the element holding the text', () => {
+    document.body.innerHTML = `
+      <div class="card">ECE 201
+        <span class="who"><i></i>Ratchaneekorn Thamvichai</span>
+      </div>`;
+
+    expect(detectProfessorsGeneric(document)[0]?.element.className).toBe('who');
+  });
+
+  it('is not fooled by the room, which also follows an icon', () => {
+    document.body.innerHTML = `
+      <div class="card">ECE 201
+        <span><i></i>M Pacheco ILC, Rm 130</span>
+      </div>`;
+
+    expect(detectProfessorsGeneric(document)).toEqual([]);
+  });
+
+  it('ignores the meeting pattern beside its icon', () => {
+    document.body.innerHTML = `
+      <div class="card">ECE 274A
+        <span><i></i>MoWeFr 12:00PM - 12:50PM</span>
+      </div>`;
+
+    expect(detectProfessorsGeneric(document)).toEqual([]);
+  });
+});
+
 describe('detectProfessorsGeneric — restraint', () => {
   it('ignores names with no course code nearby', () => {
     document.body.innerHTML = `

@@ -118,6 +118,28 @@ export interface RecentProfessor {
   viewedAt: number;
 }
 
+/**
+ * What the content script can see on a page, for troubleshooting.
+ *
+ * "No badges appeared" has two opposite causes — the script not running, or
+ * the selectors not matching — and they are indistinguishable from outside.
+ */
+export interface PageDiagnostics {
+  url: string;
+  title: string;
+  inFrame: boolean;
+  classicCount: number;
+  newCount: number;
+  genericCount: number;
+  badgesInPage: number;
+  /** How many text runs were considered at all. Zero means an empty document. */
+  textRuns: number;
+  names: string[];
+  samples: { text: string; path: string }[];
+  /** Name-shaped text that was rejected, when nothing was detected. */
+  nearMisses: { text: string; path: string }[];
+}
+
 export interface ExtensionSettings {
   autoDetect: boolean;
   showComparison: boolean;
