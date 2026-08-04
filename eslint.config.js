@@ -23,7 +23,7 @@ import globals from 'globals';
  */
 export default [
   {
-    ignores: ['dist/**', 'node_modules/**', '.vite/**', 'coverage/**'],
+    ignores: ['dist/**', 'node_modules/**', '.vite/**', 'coverage/**', 'release/**'],
   },
 
   js.configs.recommended,
@@ -37,6 +37,21 @@ export default [
     },
     rules: {
       'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      eqeqeq: ['error', 'smart'],
+    },
+  },
+
+  {
+    // Build tooling: Node-only, and printing to stdout is the whole point.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: globals.node,
+    },
+    rules: {
+      'no-console': 'off',
       'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       eqeqeq: ['error', 'smart'],
     },

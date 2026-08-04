@@ -4,11 +4,36 @@ import type { ExtensionSettings, ProfessorData } from '@shared/types';
 import { startDetector } from './detector';
 import type { DetectedProfessor } from './detector';
 import { injectBadges } from './injector';
+import { closeCard, updateOpenCard } from './card-controller';
 import { syncSidebar } from './sidebar-controller';
+import { CARD_REFRESH_EVENT } from './components/PopupCard';
+import { BADGE_CLICK_EVENT, BADGE_TAG } from './components/Badge';
+import type { BadgeData, UPIBadge } from './components/Badge';
 import type { ComparisonRow } from './components/ComparisonSidebar';
-import type { UPIBadge } from './components/Badge';
 
 console.log('[UPI] Content script loaded on UAccess');
+
+/**
+ * Handle to the previous instance's teardown, parked on `window`.
+ *
+ * Chrome can inject a content script more than once into the same page
+ * (bfcache restores, some PeopleSoft navigations). Without this, each
+ * injection would add another set of document-level listeners and a second
+ * MutationObserver, so one badge click would fire two retries.
+ */
+const TEARDOWN_KEY = '__upiTeardown';
+
+type UPIWindow = Window & { [TEARDOWN_KEY]?: () => void };
+
+function teardownPreviousInstance(): void {
+  const win = window as UPIWindow;
+  try {
+    win[TEARDOWN_KEY]?.();
+  } catch (error) {
+    console.error('[UPI] teardown of previous instance failed:', error);
+  }
+  delete win[TEARDOWN_KEY];
+}
 
 let settings: ExtensionSettings = { ...DEFAULT_SETTINGS };
 
@@ -40,23 +65,70 @@ function refreshSidebar(): void {
  * Sends one lookup and applies the result to its badge.
  *
  * Never rejects: a failed lookup degrades that single badge to its error state
- * rather than taking down the detection pass that spawned it.
+ * rather than taking down the detection pass that spawned it. `refresh` bypasses
+ * the cache, which is what the retry and Refresh actions need.
  */
-async function resolveBadge(badge: UPIBadge, professor: DetectedProfessor): Promise<void> {
+async function resolveBadge(badge: UPIBadge, name: string, refresh = false): Promise<void> {
+  badge.data = 'loading';
+
   try {
     const reply = await sendMessage(
-      { type: 'LOOKUP_PROFESSOR', name: professor.name },
+      { type: refresh ? 'REFRESH_PROFESSOR' : 'LOOKUP_PROFESSOR', name },
       'PROFESSOR_RESULT',
     );
     badge.data = reply.data;
-    results.set(professor.name, reply.data);
+    results.set(name, reply.data);
+    updateOpenCard(name, reply.data);
   } catch (error) {
     badge.data = 'error';
     // Recorded as "no data" so the sidebar can stop waiting on it.
-    results.set(professor.name, null);
-    console.error(`[UPI] lookup failed for "${professor.name}":`, error);
+    results.set(name, null);
+    updateOpenCard(name, null);
+    console.error(`[UPI] lookup failed for "${name}":`, error);
   }
   refreshSidebar();
+}
+
+/**
+ * Finds the live badge for a professor, if one is still on the page.
+ *
+ * Compares `dataset` rather than building an attribute selector: names carry
+ * apostrophes ("Sean O'Brien"), and this sidesteps selector escaping entirely.
+ */
+function badgeFor(name: string): UPIBadge | null {
+  for (const badge of document.querySelectorAll<UPIBadge>(BADGE_TAG)) {
+    if (badge.dataset.upiName === name) return badge;
+  }
+  return null;
+}
+
+/**
+ * Retry on an errored badge.
+ *
+ * The error tooltip tells the user to click, so the click has to actually
+ * refetch — and it must bypass the cache, since a failed lookup is deliberately
+ * never cached and a plain lookup would just replay the same failure.
+ */
+function onBadgeClick(event: Event): void {
+  const detail = (event as CustomEvent<BadgeData>).detail;
+  if (detail !== 'error') return;
+
+  const badge = event.target as UPIBadge | null;
+  const name = badge?.dataset.upiName;
+  if (badge && name) void resolveBadge(badge, name, true);
+}
+
+/** Refresh requested from the detail card's footer. */
+function onCardRefresh(event: Event): void {
+  const data = (event as CustomEvent<ProfessorData>).detail;
+  const badge = badgeFor(data.name);
+
+  if (!badge) {
+    // The results re-rendered underneath us; there is nothing to write back to.
+    closeCard();
+    return;
+  }
+  void resolveBadge(badge, data.name, true);
 }
 
 function onDetect(profs: DetectedProfessor[]): void {
@@ -74,7 +146,7 @@ function onDetect(profs: DetectedProfessor[]): void {
 
   for (const { badge, professor } of added) {
     // Fire and forget — resolveBadge handles its own failures.
-    void resolveBadge(badge, professor);
+    void resolveBadge(badge, professor.name);
   }
 }
 
@@ -90,6 +162,7 @@ async function loadSettings(): Promise<void> {
 
 async function main(): Promise<void> {
   try {
+    teardownPreviousInstance();
     await loadSettings();
 
     if (!settings.autoDetect) {
@@ -97,7 +170,18 @@ async function main(): Promise<void> {
       return;
     }
 
-    startDetector(document, onDetect);
+    // Delegated at the document level: badges and cards come and go, and both
+    // events are `composed` so they cross the shadow boundary to get here.
+    document.addEventListener(BADGE_CLICK_EVENT, onBadgeClick);
+    document.addEventListener(CARD_REFRESH_EVENT, onCardRefresh);
+
+    const stopDetector = startDetector(document, onDetect);
+
+    (window as UPIWindow)[TEARDOWN_KEY] = () => {
+      document.removeEventListener(BADGE_CLICK_EVENT, onBadgeClick);
+      document.removeEventListener(CARD_REFRESH_EVENT, onCardRefresh);
+      stopDetector();
+    };
   } catch (error) {
     console.error('[UPI] failed to start:', error);
   }

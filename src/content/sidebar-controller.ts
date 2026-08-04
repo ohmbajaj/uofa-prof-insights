@@ -1,5 +1,6 @@
 import { MIN_COMPARISON_ROWS } from '@shared/constants';
 import {
+  SIDEBAR_DISMISS_EVENT,
   SIDEBAR_SELECT_EVENT,
   SIDEBAR_TAG,
   UPISidebar,
@@ -8,6 +9,16 @@ import {
 import type { ComparisonRow } from './components/ComparisonSidebar';
 
 let sidebar: UPISidebar | null = null;
+
+/**
+ * Set when the user closes the panel.
+ *
+ * Without this, every subsequent detection pass would helpfully put the sidebar
+ * they just dismissed straight back on screen. Deliberately page-scoped rather
+ * than persisted: it is a "not right now", not a settings change, and the
+ * permanent switch already exists in the popup.
+ */
+let dismissed = false;
 
 export interface SyncOptions {
   enabled: boolean;
@@ -32,6 +43,10 @@ export function getSidebar(): UPISidebar | null {
   return sidebar;
 }
 
+export function isDismissed(): boolean {
+  return dismissed;
+}
+
 export function removeSidebar(): void {
   sidebar?.remove();
   sidebar = null;
@@ -41,7 +56,7 @@ export function removeSidebar(): void {
 export function syncSidebar(doc: Document, options: SyncOptions): UPISidebar | null {
   const { enabled, rows, loading, anchorFor } = options;
 
-  if (!shouldShow(enabled, rows.length)) {
+  if (dismissed || !shouldShow(enabled, rows.length)) {
     removeSidebar();
     return null;
   }
@@ -57,6 +72,10 @@ export function syncSidebar(doc: Document, options: SyncOptions): UPISidebar | n
       const anchor = anchorFor?.(row);
       anchor?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
+    sidebar.addEventListener(SIDEBAR_DISMISS_EVENT, () => {
+      dismissed = true;
+      sidebar = null;
+    });
     doc.body.appendChild(sidebar);
   }
 
@@ -68,4 +87,5 @@ export function syncSidebar(doc: Document, options: SyncOptions): UPISidebar | n
 /** Test seam. */
 export function resetSidebarState(): void {
   removeSidebar();
+  dismissed = false;
 }

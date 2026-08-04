@@ -443,6 +443,166 @@ describe('content script — settings', () => {
   });
 });
 
+describe('content script — retry and refresh', () => {
+  it('refetches when an errored badge is clicked', async () => {
+    document.body.innerHTML = CLASSIC_HTML;
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    let attempt = 0;
+    const send = installRuntime(async (m) => {
+      attempt += 1;
+      if (attempt === 1) return { type: 'ERROR', message: 'network down' };
+      return {
+        type: 'PROFESSOR_RESULT',
+        name: (m as { name: string }).name,
+        data: professor(),
+      };
+    });
+
+    await loadContentScript();
+    await flush();
+
+    const badge = document.querySelector('upi-badge') as HTMLElement & { data: unknown };
+    expect(badge.data).toBe('error');
+
+    badge.click();
+    await flush();
+
+    expect(badge.data).not.toBe('error');
+    expect(badge.shadowRoot?.textContent).toContain('2.9');
+    // The retry must bypass the cache, since failures are never cached.
+    expect(send).toHaveBeenCalledWith({
+      type: 'REFRESH_PROFESSOR',
+      name: 'Richard Mercer',
+    });
+  });
+
+  it('shows the loading state while retrying', async () => {
+    document.body.innerHTML = CLASSIC_HTML;
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    let attempt = 0;
+    installRuntime(async () => {
+      attempt += 1;
+      if (attempt === 1) return { type: 'ERROR', message: 'down' };
+      return new Promise(() => {}) as never; // second call never resolves
+    });
+
+    await loadContentScript();
+    await flush();
+
+    const badge = document.querySelector('upi-badge') as HTMLElement & { data: unknown };
+    badge.click();
+
+    expect(badge.data).toBe('loading');
+  });
+
+  it('stays in the error state when the retry also fails', async () => {
+    document.body.innerHTML = CLASSIC_HTML;
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    installRuntime(async () => ({ type: 'ERROR', message: 'still down' }));
+
+    await loadContentScript();
+    await flush();
+
+    const badge = document.querySelector('upi-badge') as HTMLElement & { data: unknown };
+    badge.click();
+    await flush();
+
+    expect(badge.data).toBe('error');
+  });
+
+  it('does not retry a badge that resolved successfully', async () => {
+    document.body.innerHTML = CLASSIC_HTML;
+    const send = installRuntime(async (m) => ({
+      type: 'PROFESSOR_RESULT',
+      name: (m as { name: string }).name,
+      data: professor(),
+    }));
+
+    await loadContentScript();
+    await flush();
+    send.mockClear();
+
+    (document.querySelector('upi-badge') as HTMLElement).click();
+    await flush();
+
+    expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'REFRESH_PROFESSOR' }));
+  });
+
+  it('refreshes from the card footer and updates both card and badge', async () => {
+    document.body.innerHTML = CLASSIC_HTML;
+    let call = 0;
+    const send = installRuntime(async (m) => {
+      call += 1;
+      return {
+        type: 'PROFESSOR_RESULT',
+        name: (m as { name: string }).name,
+        data: professor({ overallRating: call === 1 ? 2.9 : 4.4, numRatings: 200 }),
+      };
+    });
+
+    await loadContentScript();
+    await flush();
+
+    const badge = document.querySelector('upi-badge') as HTMLElement;
+    badge.click();
+    const card = document.querySelector('upi-card') as HTMLElement;
+    expect(card.shadowRoot?.textContent).toContain('2.9');
+
+    (card.shadowRoot?.querySelector('.refresh') as HTMLButtonElement).click();
+    await flush();
+
+    expect(send).toHaveBeenCalledWith({ type: 'REFRESH_PROFESSOR', name: 'Richard Mercer' });
+    expect(card.shadowRoot?.textContent).toContain('4.4');
+    expect(badge.shadowRoot?.textContent).toContain('4.4');
+  });
+
+  it('closes the card when a refresh finds no match', async () => {
+    document.body.innerHTML = CLASSIC_HTML;
+    let call = 0;
+    installRuntime(async (m) => {
+      call += 1;
+      return {
+        type: 'PROFESSOR_RESULT',
+        name: (m as { name: string }).name,
+        data: call === 1 ? professor() : null,
+      };
+    });
+
+    await loadContentScript();
+    await flush();
+
+    (document.querySelector('upi-badge') as HTMLElement).click();
+    const card = document.querySelector('upi-card') as HTMLElement;
+    (card.shadowRoot?.querySelector('.refresh') as HTMLButtonElement).click();
+    await flush();
+
+    expect(document.querySelectorAll('upi-card')).toHaveLength(0);
+  });
+
+  it('does not fire two retries after a repeat injection', async () => {
+    document.body.innerHTML = CLASSIC_HTML;
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const send = installRuntime(async () => ({ type: 'ERROR', message: 'down' }));
+
+    await loadContentScript();
+    await flush();
+    // Chrome re-injecting the content script into the same page.
+    await loadContentScript();
+    await flush();
+    send.mockClear();
+
+    (document.querySelector('upi-badge') as HTMLElement).click();
+    await flush();
+
+    const retries = send.mock.calls.filter(
+      ([m]) => (m as OutgoingMessage).type === 'REFRESH_PROFESSOR',
+    );
+    expect(retries).toHaveLength(1);
+  });
+});
+
 describe('content script — detail card', () => {
   it('opens a card when a resolved badge is clicked', async () => {
     document.body.innerHTML = CLASSIC_HTML;

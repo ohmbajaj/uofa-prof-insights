@@ -58,6 +58,22 @@ export function getOpenCard(): UPICard | null {
 }
 
 /**
+ * Pushes fresh data into the open card, but only when it is still showing the
+ * same professor — a refresh that resolves after the user moved on must not
+ * hijack whatever card they are looking at now.
+ */
+export function updateOpenCard(name: string, data: ProfessorData | null): void {
+  if (!openCard || openCard.data?.name !== name) return;
+  if (data) {
+    openCard.data = data;
+  } else {
+    // The refresh failed or lost the match; drop the stale card rather than
+    // leaving numbers on screen that no longer reflect anything.
+    closeCard();
+  }
+}
+
+/**
  * Opens (or moves) the detail card for `data`, anchored to `anchor`.
  * Clicking the same badge again closes it.
  */

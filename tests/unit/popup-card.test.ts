@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CARD_TAG, UPICard, formatAge } from '@content/components/PopupCard';
-import { closeCard, computePosition, openCardFor, resetCardState } from '@content/card-controller';
+import { CARD_REFRESH_EVENT, CARD_TAG, UPICard, formatAge } from '@content/components/PopupCard';
+import {
+  closeCard,
+  computePosition,
+  getOpenCard,
+  openCardFor,
+  resetCardState,
+  updateOpenCard,
+} from '@content/card-controller';
 import { COLOR_GOOD } from '@shared/constants';
 import { makeProfessor } from '../helpers/chrome-mock';
 
@@ -115,6 +122,91 @@ describe('UPICard', () => {
 
     expect(shadowText(card)).toContain('Second Prof');
     expect(shadowText(card)).not.toContain('First Prof');
+  });
+});
+
+describe('UPICard refresh', () => {
+  it('emits upi-card-refresh with the professor', () => {
+    const card = mount();
+    const prof = makeProfessor({ name: 'Richard Mercer' });
+    card.data = prof;
+
+    let detail: unknown;
+    card.addEventListener(CARD_REFRESH_EVENT, (e) => {
+      detail = (e as CustomEvent).detail;
+    });
+    (card.shadowRoot?.querySelector('.refresh') as HTMLButtonElement).click();
+
+    expect(detail).toBe(prof);
+  });
+
+  it('shows a pending state and disables the button while refreshing', () => {
+    const card = mount();
+    card.data = makeProfessor();
+    (card.shadowRoot?.querySelector('.refresh') as HTMLButtonElement).click();
+
+    expect(card.busy).toBe(true);
+    expect(shadowText(card)).toContain('Refreshing…');
+    expect(card.shadowRoot?.querySelector('.refresh')).toHaveProperty('disabled', true);
+  });
+
+  it('clears the pending state when new data arrives', () => {
+    const card = mount();
+    card.data = makeProfessor();
+    card.busy = true;
+
+    card.data = makeProfessor({ overallRating: 4.9 });
+
+    expect(card.busy).toBe(false);
+    expect(shadowText(card)).toContain('Cached');
+    expect(card.shadowRoot?.querySelector('.refresh')).toHaveProperty('disabled', false);
+  });
+
+  it('bubbles out of the shadow root', () => {
+    const card = mount();
+    card.data = makeProfessor();
+
+    let seen = false;
+    document.body.addEventListener(CARD_REFRESH_EVENT, () => {
+      seen = true;
+    });
+    (card.shadowRoot?.querySelector('.refresh') as HTMLButtonElement).click();
+
+    expect(seen).toBe(true);
+  });
+});
+
+describe('updateOpenCard', () => {
+  function badge(): HTMLElement {
+    const el = document.createElement('span');
+    document.body.appendChild(el);
+    return el;
+  }
+
+  it('replaces the data when the card shows that professor', () => {
+    openCardFor(badge(), makeProfessor({ name: 'Richard Mercer', overallRating: 2.9 }));
+    updateOpenCard('Richard Mercer', makeProfessor({ name: 'Richard Mercer', overallRating: 4.4 }));
+
+    expect(shadowText(getOpenCard()!)).toContain('4.4');
+  });
+
+  it('ignores an update for a different professor', () => {
+    openCardFor(badge(), makeProfessor({ name: 'Richard Mercer', overallRating: 2.9 }));
+    updateOpenCard('Someone Else', makeProfessor({ name: 'Someone Else', overallRating: 4.4 }));
+
+    expect(shadowText(getOpenCard()!)).toContain('2.9');
+  });
+
+  it('closes the card when the refresh yields no match', () => {
+    openCardFor(badge(), makeProfessor({ name: 'Richard Mercer' }));
+    updateOpenCard('Richard Mercer', null);
+
+    expect(getOpenCard()).toBeNull();
+    expect(document.querySelectorAll(CARD_TAG)).toHaveLength(0);
+  });
+
+  it('is a no-op when no card is open', () => {
+    expect(() => updateOpenCard('Anyone', makeProfessor())).not.toThrow();
   });
 });
 

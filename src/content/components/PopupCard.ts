@@ -3,6 +3,7 @@ import { COLOR_UNKNOWN } from '@shared/constants';
 import type { ProfessorData } from '@shared/types';
 
 export const CARD_TAG = 'upi-card';
+export const CARD_REFRESH_EVENT = 'upi-card-refresh';
 
 const STYLES = `
   :host {
@@ -83,7 +84,29 @@ const STYLES = `
   }
   a.rmp:hover { text-decoration: underline; }
 
-  footer { color: #999; font-size: 10px; margin-top: 8px; }
+  footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    color: #999;
+    font-size: 10px;
+    margin-top: 8px;
+  }
+
+  .refresh {
+    border: 0;
+    background: transparent;
+    color: #0c234b;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+  }
+  .refresh:hover:not(:disabled) { background: #eef2f8; }
+  .refresh:disabled { color: #999; cursor: default; }
 `;
 
 function fmtRating(value: number | null): string {
@@ -119,6 +142,7 @@ export class UPICard extends HTMLElement {
   #shadow: ShadowRoot;
   #body: HTMLElement;
   #data: ProfessorData | null = null;
+  #busy = false;
 
   constructor() {
     super();
@@ -145,6 +169,17 @@ export class UPICard extends HTMLElement {
 
   set data(value: ProfessorData | null) {
     this.#data = value;
+    // A completed refresh clears the pending state.
+    this.#busy = false;
+    this.#render();
+  }
+
+  get busy(): boolean {
+    return this.#busy;
+  }
+
+  set busy(value: boolean) {
+    this.#busy = value;
     this.#render();
   }
 
@@ -219,8 +254,28 @@ export class UPICard extends HTMLElement {
     const plural = data.numRatings === 1 ? 'rating' : 'ratings';
     link.textContent = `View ${data.numRatings} ${plural} on RMP →`;
 
+    const age = doc.createElement('span');
+    age.textContent = this.#busy ? 'Refreshing…' : `Cached ${formatAge(data.cachedAt)}`;
+
+    const refresh = doc.createElement('button');
+    refresh.className = 'refresh';
+    refresh.type = 'button';
+    refresh.textContent = 'Refresh';
+    refresh.disabled = this.#busy;
+    refresh.addEventListener('click', (event) => {
+      event.stopPropagation();
+      this.busy = true;
+      this.dispatchEvent(
+        new CustomEvent<ProfessorData>(CARD_REFRESH_EVENT, {
+          detail: data,
+          bubbles: true,
+          composed: true,
+        }),
+      );
+    });
+
     const footer = doc.createElement('footer');
-    footer.textContent = `Cached ${formatAge(data.cachedAt)}`;
+    footer.append(age, refresh);
 
     this.#body.append(link, footer);
   }

@@ -6,7 +6,12 @@ import {
   sortRows,
 } from '@content/components/ComparisonSidebar';
 import type { ComparisonRow } from '@content/components/ComparisonSidebar';
-import { resetSidebarState, shouldShow, syncSidebar } from '@content/sidebar-controller';
+import {
+  isDismissed,
+  resetSidebarState,
+  shouldShow,
+  syncSidebar,
+} from '@content/sidebar-controller';
 import { COLOR_BAD, COLOR_GOOD, COLOR_UNKNOWN } from '@shared/constants';
 import { makeProfessor } from '../helpers/chrome-mock';
 
@@ -214,9 +219,50 @@ describe('syncSidebar', () => {
     expect(scrollIntoView).toHaveBeenCalled();
   });
 
-  it('remounts after the user closes it and results change', () => {
+  it('remounts if it was detached without being dismissed', () => {
     const sidebar = syncSidebar(document, { enabled: true, rows: two, loading: false });
     sidebar?.remove();
+
+    syncSidebar(document, { enabled: true, rows: two, loading: false });
+    expect(document.querySelectorAll(SIDEBAR_TAG)).toHaveLength(1);
+  });
+});
+
+describe('syncSidebar — dismissal', () => {
+  const two = [row('A Prof', 2.0), row('B Prof', 4.8)];
+
+  function dismiss(sidebar: UPISidebar | null): void {
+    (sidebar?.shadowRoot?.querySelector('.close') as HTMLButtonElement).click();
+  }
+
+  it('stays closed after the user dismisses it', () => {
+    const sidebar = syncSidebar(document, { enabled: true, rows: two, loading: false });
+    dismiss(sidebar);
+    expect(document.querySelectorAll(SIDEBAR_TAG)).toHaveLength(0);
+
+    // A later detection pass must not put it straight back.
+    syncSidebar(document, { enabled: true, rows: two, loading: false });
+    expect(document.querySelectorAll(SIDEBAR_TAG)).toHaveLength(0);
+  });
+
+  it('records the dismissal', () => {
+    expect(isDismissed()).toBe(false);
+    dismiss(syncSidebar(document, { enabled: true, rows: two, loading: false }));
+    expect(isDismissed()).toBe(true);
+  });
+
+  it('stays closed across many subsequent passes', () => {
+    dismiss(syncSidebar(document, { enabled: true, rows: two, loading: false }));
+
+    for (let i = 0; i < 5; i++) {
+      syncSidebar(document, { enabled: true, rows: two, loading: false });
+    }
+    expect(document.querySelectorAll(SIDEBAR_TAG)).toHaveLength(0);
+  });
+
+  it('is forgotten on a fresh page load', () => {
+    dismiss(syncSidebar(document, { enabled: true, rows: two, loading: false }));
+    resetSidebarState(); // stands in for a new page
 
     syncSidebar(document, { enabled: true, rows: two, loading: false });
     expect(document.querySelectorAll(SIDEBAR_TAG)).toHaveLength(1);

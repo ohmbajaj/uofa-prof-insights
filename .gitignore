@@ -39,6 +39,7 @@ Thumbs.db
 !.env.example
 
 # Packaged extension
+release/
 *.zip
 *.crx
 *.pem

@@ -5,6 +5,7 @@ import { SKELETON_STYLES, createSkeletonList } from './Skeleton';
 
 export const SIDEBAR_TAG = 'upi-sidebar';
 export const SIDEBAR_SELECT_EVENT = 'upi-sidebar-select';
+export const SIDEBAR_DISMISS_EVENT = 'upi-sidebar-dismiss';
 
 /** One row: a professor we resolved, or a name we could not match. */
 export interface ComparisonRow {
@@ -161,7 +162,12 @@ export class UPISidebar extends HTMLElement {
     close.type = 'button';
     close.textContent = '×';
     close.setAttribute('aria-label', 'Close comparison');
-    close.addEventListener('click', () => this.remove());
+    close.addEventListener('click', () => {
+      // Announce before detaching, so the controller can remember the choice
+      // and stop remounting on every subsequent detection pass.
+      this.dispatchEvent(new CustomEvent(SIDEBAR_DISMISS_EVENT, { bubbles: true, composed: true }));
+      this.remove();
+    });
 
     header.append(heading, close);
 

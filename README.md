@@ -3,10 +3,14 @@
 A Chrome extension (Manifest V3) that shows RateMyProfessor ratings inline inside
 UAccess, so you can see who's teaching a section without leaving registration.
 
+> **Just want to install it?** See **[INSTALL.md](INSTALL.md)** — no coding
+> required. This file is the developer documentation.
+
 ## Status
 
-**Phase 2 complete** — every module is implemented. Not yet verified in a real
-browser (see [Unverified](#unverified-in-a-real-browser)).
+**Feature complete and packaged.** Every module is implemented, 300+ tests pass,
+and `npm run package` produces a Chrome Web Store-ready zip. Not yet verified in
+a real browser (see [Unverified](#unverified-in-a-real-browser)).
 
 | Layer                                         | State                             |
 | --------------------------------------------- | --------------------------------- |
@@ -50,6 +54,13 @@ page is still covered.
   to compare against. Clicking a row scrolls to that badge.
 - **Popup** with a manual professor search, cache stats, and settings
   (`autoDetect`, `showComparison`, `cacheTTLDays`).
+- **Retry and refresh.** An errored badge refetches when clicked, and the card's
+  Refresh button re-pulls a stale record. Both bypass the cache via
+  `REFRESH_PROFESSOR`, since a failed lookup is deliberately never cached and a
+  plain lookup would just replay the failure.
+- **Idempotent injection.** A second content-script injection into the same page
+  tears down the first, so re-injection cannot double-register listeners or
+  observers.
 
 All in-page UI is shadow-DOM encapsulated, so PeopleSoft's stylesheets cannot
 reach in and our styles cannot leak out.
@@ -59,6 +70,8 @@ reach in and our styles cannot leak out.
 ```bash
 npm run dev         # Vite + CRXJS dev server with HMR
 npm run build       # production build into dist/
+npm run package     # build, then zip to release/ for the Web Store
+npm run icons       # regenerate src/assets/icon-*.png from source
 npm test            # unit tests (offline, deterministic)
 npm run test:live   # hits the real RMP API — run after any RMP schema change
 npm run typecheck   # tsc --noEmit, strict
@@ -67,6 +80,21 @@ npm run check       # typecheck + lint + format:check + test
 
 Load the unpacked extension from `dist/` via `chrome://extensions` →
 "Load unpacked".
+
+### Releasing
+
+1. Bump `version` in **both** `manifest.json` and `package.json` — `npm run
+package` refuses to build if they disagree, since the store rejects a
+   mismatch.
+2. `npm run check` to gate.
+3. `npm run package` → `release/uofa-prof-insights-<version>.zip`.
+4. Upload that zip to the Chrome Web Store, or share it with
+   [INSTALL.md](INSTALL.md) for unpacked install.
+
+The icons are generated from [scripts/generate-icons.mjs](scripts/generate-icons.mjs)
+— a rounded cardinal tile with a white star, rasterized by hand so no image
+library is needed. The packaging script writes the zip by hand for the same
+reason.
 
 ## Phase 0 findings
 
@@ -141,11 +169,7 @@ middle`, `em` sizing — but jsdom cannot confirm it).
   TypeScript 7 (TS 6 only shipped as a beta, so downgrading isn't an option).
   `npm run typecheck` covers the ground in the meantime. See
   [eslint.config.js](eslint.config.js).
-- **Icons are placeholders** — flat cardinal-red squares.
-- **Tailwind is installed but unused.** The popup uses hand-written CSS
-  ([styles.css](src/popup/styles.css)); the plugin stays in the build but emits
-  nothing without an `@import "tailwindcss"`.
-- **The sidebar does not persist a manual close.** Dismissing it lasts until the
-  next search re-renders the results.
+- **Sidebar dismissal is page-scoped**, not persisted. Closing it lasts until
+  the next page load; the permanent switch is the `showComparison` setting.
 - A deprecation warning from `@crxjs/vite-plugin` about `server.hmr.*` appears
   during builds. It originates inside the plugin, not this config.
