@@ -1,17 +1,123 @@
-import type { ProfessorData } from '@shared/types';
-import type { DetectedInstructor } from './detector';
+import { BADGE_CLICK_EVENT, BADGE_TAG, UPIBadge, defineBadge } from './components/Badge';
+import type { BadgeData } from './components/Badge';
+import type { DetectedProfessor } from './detector';
 
-// TODO(Phase 1): render Badge/Skeleton into each anchor, ideally inside a
-// shadow root so UAccess's PeopleSoft stylesheets cannot bleed into our UI.
+/**
+ * Badges currently in the page, keyed by the element they were injected into.
+ *
+ * The value is an array rather than a single badge because one UAccess cell can
+ * list several instructors (`Mercer, Richard<br>Debray, Saumya`), each of which
+ * gets its own badge.
+ */
+const injected = new Map<Element, UPIBadge[]>();
 
-export function injectSkeleton(_target: DetectedInstructor): void {
-  // TODO(Phase 1)
+export interface InjectedBadge {
+  badge: UPIBadge;
+  professor: DetectedProfessor;
 }
 
-export function injectBadge(_target: DetectedInstructor, _data: ProfessorData | null): void {
-  // TODO(Phase 1)
+/** Ensures `upi-badge` is registered in the window that owns `element`. */
+function ensureDefined(element: Element): void {
+  const win = element.ownerDocument.defaultView;
+  if (win) defineBadge(win as Window & typeof globalThis);
 }
 
-export function removeAllBadges(): void {
-  // TODO(Phase 1)
+function badgesFor(element: Element): UPIBadge[] {
+  return injected.get(element) ?? [];
+}
+
+/**
+ * Injects a loading badge for every professor that does not already have one.
+ *
+ * Returns the badges it created so the caller can resolve them. (The spec
+ * called for `void`, but Step 6 needs the badge handles to apply lookup
+ * results; returning them avoids exporting mutable module state.)
+ */
+export function injectBadges(profs: DetectedProfessor[]): InjectedBadge[] {
+  pruneDetached();
+
+  const added: InjectedBadge[] = [];
+
+  for (const professor of profs) {
+    const { element, name } = professor;
+
+    // Already badged for this exact name — a re-detection pass, not new content.
+    if (badgesFor(element).some((b) => b.dataset.upiName === name)) continue;
+
+    ensureDefined(element);
+
+    const badge = element.ownerDocument.createElement(BADGE_TAG) as UPIBadge;
+    badge.dataset.upiName = name;
+    badge.data = 'loading';
+
+    badge.addEventListener(BADGE_CLICK_EVENT, (event) => {
+      const detail = (event as CustomEvent<BadgeData>).detail;
+      console.info(`[UPI] badge clicked for ${name}:`, detail);
+    });
+
+    // Appended INSIDE the cell rather than after it. The classic detector
+    // anchors on a <td>, and inserting a sibling there would place a non-cell
+    // element directly inside <tr>, which browsers hoist out of the table and
+    // which visibly breaks the results grid.
+    element.appendChild(badge);
+
+    injected.set(element, [...badgesFor(element), badge]);
+    added.push({ badge, professor });
+  }
+
+  if (added.length > 0) {
+    console.info(`[UPI] Injected ${added.length} badges`);
+  }
+  return added;
+}
+
+/** Removes the badges belonging to the given professors. */
+export function removeBadges(profs: DetectedProfessor[]): void {
+  let removed = 0;
+
+  for (const { element } of profs) {
+    for (const badge of badgesFor(element)) {
+      badge.remove();
+      removed += 1;
+    }
+    injected.delete(element);
+  }
+
+  if (removed > 0) {
+    console.info(`[UPI] Removed ${removed} badges`);
+  }
+}
+
+/**
+ * Drops badges whose host element has left the document.
+ *
+ * This is what keeps a new search or a page of results from accumulating stale
+ * entries: PeopleSoft replaces the results container wholesale, so the old
+ * cells are detached rather than emptied.
+ */
+export function pruneDetached(): number {
+  let removed = 0;
+
+  for (const [element, badges] of injected) {
+    if (element.isConnected) continue;
+    for (const badge of badges) badge.remove();
+    injected.delete(element);
+    removed += badges.length;
+  }
+
+  if (removed > 0) {
+    console.info(`[UPI] Removed ${removed} badges`);
+  }
+  return removed;
+}
+
+/** Test seam — drops all tracking state without touching the DOM. */
+export function resetInjectorState(): void {
+  injected.clear();
+}
+
+export function injectedCount(): number {
+  let total = 0;
+  for (const badges of injected.values()) total += badges.length;
+  return total;
 }

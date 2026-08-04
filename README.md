@@ -5,18 +5,38 @@ UAccess, so you can see who's teaching a section without leaving registration.
 
 ## Status
 
-**Phase 0 complete** — scaffolding, verified API client, cache, and message
-plumbing. The content script is still a stub: it needs real UAccess DOM
-selectors, which requires a logged-in session.
+**Phase 1 complete** — badges are detected, injected, and resolved end to end
+against both UAccess layouts. Not yet verified in a real browser (see
+[Unverified](#unverified-in-a-real-browser)).
 
-| Layer                                    | State                             |
-| ---------------------------------------- | --------------------------------- |
-| `src/shared/*`                           | Done, tested                      |
-| `src/background/rmp-api.ts`              | Done, tested against the live API |
-| `src/background/cache.ts`                | Done, tested                      |
-| `src/background/message-handler.ts`      | Done                              |
-| `src/content/*` (detector, injector, UI) | **Stubbed — blocked on DOM**      |
-| `src/popup/*`                            | Stubbed                           |
+| Layer                                | State                             |
+| ------------------------------------ | --------------------------------- |
+| `src/shared/*`                       | Done, tested                      |
+| `src/background/rmp-api.ts`          | Done, tested against the live API |
+| `src/background/cache.ts`            | Done, tested                      |
+| `src/background/message-handler.ts`  | Done, tested                      |
+| `src/content/detector*.ts`           | Done, tested (both layouts)       |
+| `src/content/components/Badge.ts`    | Done, tested                      |
+| `src/content/injector.ts`            | Done, tested                      |
+| `src/content/components/PopupCard`   | Stubbed — Phase 2                 |
+| `src/content/components/Comparison…` | Stubbed — Phase 2                 |
+| `src/popup/*`                        | Stubbed — Phase 2                 |
+
+## How it works
+
+```
+detector-classic.ts ─┐
+                     ├─> detector.ts ──> injector.ts ──> Badge (upi-badge)
+detector-new.ts    ──┘   (MutationObserver,   (dedupes,        │
+                          250ms debounce)      prunes stale)   │
+                                                               ▼
+                                   index.ts ──chrome.runtime.sendMessage──>
+                                   service-worker ──> cache ──> rmp-api
+```
+
+Both detectors run on every pass; each is a scoped `querySelectorAll` that
+returns nothing on the other layout, so no page sniffing is needed and a hybrid
+page is still covered.
 
 ## Commands
 
@@ -77,8 +97,26 @@ from the `--`-delimited `ratingTags` string on individual ratings, via a second
 query. `fetchTopTags()` does this and degrades to `[]` rather than failing the
 whole lookup.
 
+## Unverified in a real browser
+
+Everything below is covered by automated tests in jsdom, which has no layout
+engine and no CSS. These need a human pass in Chrome:
+
+- That the badge doesn't disturb the results grid's row heights or column
+  widths (the styles are built for this — `inline-flex`, `vertical-align:
+middle`, `em` sizing — but jsdom cannot confirm it).
+- That the shadow-root styles actually hold up against PeopleSoft's stylesheets.
+- That a custom element defined from a content script's isolated world upgrades
+  correctly in the page. This is a well-established pattern, but it is a real
+  Chrome behavior that no test here exercises.
+- Real UAccess ids. The selectors come from the two supplied snippets; live
+  PeopleSoft may carry extra instance suffixes.
+
 ## Known gaps
 
+- **Multiple instructors per section** are supported (a `<br>`-separated cell
+  gets one badge per name), but each badge is looked up independently — there is
+  no "primary instructor" concept yet.
 - **TypeScript files are not linted.** typescript-eslint refuses to load against
   TypeScript 7 (TS 6 only shipped as a beta, so downgrading isn't an option).
   `npm run typecheck` covers the ground in the meantime. See
