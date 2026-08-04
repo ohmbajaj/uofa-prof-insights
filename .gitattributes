@@ -1,0 +1,9 @@
+# Keep line endings LF in the repo so `prettier --check` (endOfLine: lf) passes
+# on every platform, including fresh Windows clones.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.zip binary
+*.crx binary

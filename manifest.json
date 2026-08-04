@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "UofA Prof Insights",
+  "version": "1.0.0",
+  "description": "See RateMyProfessor ratings directly in UAccess while browsing and registering for classes.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://www.ratemyprofessors.com/*",
+    "https://uaccess.arizona.edu/*",
+    "https://student.uaccess.arizona.edu/*",
+    "https://student851.uaccess.arizona.edu/*",
+    "https://studentcenter.arizona.edu/*"
+  ],
+  "background": {
+    "service_worker": "src/background/service-worker.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://uaccess.arizona.edu/*",
+        "https://student.uaccess.arizona.edu/*",
+        "https://student851.uaccess.arizona.edu/*",
+        "https://studentcenter.arizona.edu/*"
+      ],
+      "js": ["src/content/index.ts"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_icon": {
+      "16": "src/assets/icon-16.png",
+      "48": "src/assets/icon-48.png",
+      "128": "src/assets/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "src/assets/icon-16.png",
+    "48": "src/assets/icon-48.png",
+    "128": "src/assets/icon-128.png"
+  }
+}

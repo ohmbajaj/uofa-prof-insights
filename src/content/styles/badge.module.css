@@ -1,0 +1,6 @@
+/* TODO(Phase 1): inline rating pill. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
