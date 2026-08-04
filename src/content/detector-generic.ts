@@ -1,0 +1,187 @@
+import { NON_INSTRUCTOR_NAMES } from '@shared/constants';
+import { parseInstructorField } from '@shared/utils';
+import type { DetectedProfessor } from './detector';
+
+/**
+ * Last-resort detector for UAccess layouts we have not seen.
+ *
+ * UAccess ships at least three different class views — the classic search
+ * grid, the Student Center result panels, and the card-based Class Schedule —
+ * and more will appear. The first two have dedicated detectors keyed on real
+ * ids and classes. This one runs only when both find nothing, and infers
+ * instructors from structure instead.
+ *
+ * It is deliberately hard to satisfy, because a wrong badge is worse than no
+ * badge. A candidate must clear every one of these:
+ *
+ *   - live inside a block that also contains a course code ("ECE 201"), which
+ *     keeps it away from nav bars, headers and account menus
+ *   - be the entire text of its own element, not a fragment of a sentence
+ *   - look like a person's name: 2-4 capitalised words, no digits
+ *   - not be a known placeholder ("Staff", "To be Announced")
+ *
+ * Even then the lookup can still return nothing, in which case the badge shows
+ * a grey N/A rather than a wrong rating.
+ */
+
+/** "ECE 201", "CSC 110", "MATH 223A" — a subject code followed by a number. */
+const COURSE_CODE = /\b[A-Z]{2,5}\s?\d{3}[A-Z]?\b/;
+
+/**
+ * A plausible person name: two to four capitalised words.
+ *
+ * Allows internal apostrophes and hyphens ("O'Brien", "Smith-Jones") and
+ * accented letters, and permits a lowercase particle ("van", "de") in the
+ * middle of a surname.
+ */
+const PERSON_NAME =
+  /^\p{Lu}[\p{L}'’-]+(?:\s+(?:van|von|de|del|della|di|da|du|la|le|of|bin|al)\s+|\s+)(?:\p{Lu}[\p{L}'’-]+)(?:\s+\p{Lu}[\p{L}'’-]+){0,2}$/u;
+
+/**
+ * Vocabulary that appears in UAccess chrome rather than in names.
+ *
+ * A shape test alone is not enough: "Class Nbr", "Digital Logic" and
+ * "Academic Deadlines" are all two capitalised words with no digits, exactly
+ * like "Rick Mercer". A candidate is rejected when *every* one of its words is
+ * drawn from this list, which keeps labels and course titles out while leaving
+ * real names — whose surnames are essentially never common English — intact.
+ */
+const UI_VOCABULARY = new Set(
+  `academic add advanced advising aerospace aid algebra algorithms american analysis ancient
+   application applied architecture array art artificial basic biology biomedical bldg building
+   business calculus calendar campus capacity career catalog center chemical chemistry civil
+   class classes closed cloud communication comparative compiler compilers component composition
+   computer computing concepts contemporary course courses credit credits data database databases
+   day days deadlines degree description design details differential digital discrete discussion
+   distributed drop dropped earth economics edit education electrical elementary end engineering
+   enroll enrolled enrollment environment exam experimental fall field film filter final financial
+   freshman fundamentals general global grade grades grading graduate graphics hardware help
+   history home honors hours human independent industrial information inorganic instruction
+   instructor intelligence interaction interface international internship introduction junior lab
+   laboratory law learning lecture library life linear list literature location logic machine
+   main management materials mathematics mechanical media medicine medieval meeting mobile modern
+   more music my natural nbr network networks none number numerical nursing online open operating
+   options organic parallel personal pharmacy philosophy physical physics planning points
+   practicum prerequisites principles print programming psychology qualitative quantitative quiz
+   record records regular requirements research results room schedule science search seat seats
+   second section security selected seminar senior session showing social sociology software
+   sophomore space special spring staff start statistics status structure structures student
+   studies subject summer sustainability swap syllabus systems term textbook theater theatre
+   theoretical theory thesis third time times title to topics total transcript undergraduate
+   units update view vision waitlist waitlisted web weekly winter withdraw world writing year`
+    .split(/\s+/)
+    .filter(Boolean),
+);
+
+/** True when the text is made entirely of interface words. */
+function isInterfaceText(text: string): boolean {
+  const words = text
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length === 0) return true;
+  return words.every((w) => UI_VOCABULARY.has(w));
+}
+
+/** Regions that never contain a section's instructor. */
+const EXCLUDED_ANCESTORS =
+  'nav, header, footer, [role="navigation"], [role="banner"], upi-sidebar, upi-card, upi-filter';
+
+/** How far up to look for a course code before giving up. */
+const MAX_ANCESTOR_HOPS = 6;
+
+function looksLikePerson(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length < 5 || trimmed.length > 60) return false;
+  if (/\d/.test(trimmed)) return false;
+  if (NON_INSTRUCTOR_NAMES.has(trimmed.toLowerCase())) return false;
+  if (isInterfaceText(trimmed)) return false;
+  return PERSON_NAME.test(trimmed);
+}
+
+/** True when some ancestor within reach also mentions a course code. */
+function sitsBesideACourseCode(element: HTMLElement): boolean {
+  let current: HTMLElement | null = element.parentElement;
+
+  for (let hop = 0; current && hop < MAX_ANCESTOR_HOPS; hop++) {
+    // Guard against scanning the entire page body.
+    if (current.tagName === 'BODY') return false;
+    if (COURSE_CODE.test(current.textContent ?? '')) return true;
+    current = current.parentElement;
+  }
+  return false;
+}
+
+/**
+ * Elements whose entire text is one instructor field.
+ *
+ * Leaf-ish elements only: if a child already contains the same text, the child
+ * is the real owner and the parent would produce a duplicate.
+ */
+function candidateElements(doc: Document): HTMLElement[] {
+  const out: HTMLElement[] = [];
+
+  for (const element of doc.querySelectorAll<HTMLElement>('div, span, td, li, p, a')) {
+    const text = element.textContent?.trim() ?? '';
+    if (!text || text.length > 120) continue;
+    if (element.closest(EXCLUDED_ANCESTORS)) continue;
+
+    // Skip if a descendant carries the same text — that descendant wins.
+    const child = [...element.children].find((c) => (c.textContent?.trim() ?? '') === text);
+    if (child) continue;
+
+    out.push(element);
+  }
+
+  return out;
+}
+
+export function detectProfessorsGeneric(doc: Document): DetectedProfessor[] {
+  const found: DetectedProfessor[] = [];
+  const claimed = new Set<HTMLElement>();
+
+  for (const element of candidateElements(doc)) {
+    const raw = element.textContent?.trim() ?? '';
+
+    // Modern UAccess views write names in natural order, several to a field.
+    const names = parseInstructorField(raw, 'natural-list');
+    if (names.length === 0) continue;
+    if (!names.every(looksLikePerson)) continue;
+    if (!sitsBesideACourseCode(element)) continue;
+    if (claimed.has(element)) continue;
+
+    claimed.add(element);
+    const courseCode = courseCodeNear(element);
+
+    for (const name of names) {
+      found.push({
+        element,
+        name,
+        rawName: raw,
+        ...(courseCode ? { courseCode } : {}),
+      });
+    }
+  }
+
+  if (found.length > 0) {
+    console.info(
+      `[UPI] generic detector found ${found.length} instructor(s):`,
+      found.map((p) => p.name),
+    );
+  }
+  return found;
+}
+
+/** The nearest course code above this element, normalized for RMP comparison. */
+function courseCodeNear(element: HTMLElement): string | undefined {
+  let current: HTMLElement | null = element.parentElement;
+
+  for (let hop = 0; current && hop < MAX_ANCESTOR_HOPS; hop++) {
+    if (current.tagName === 'BODY') break;
+    const hit = COURSE_CODE.exec(current.textContent ?? '');
+    if (hit) return hit[0].replace(/\s+/g, '').toUpperCase();
+    current = current.parentElement;
+  }
+  return undefined;
+}

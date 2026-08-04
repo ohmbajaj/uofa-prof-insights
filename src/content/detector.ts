@@ -1,5 +1,6 @@
 import { BADGE_TAG } from './components/Badge';
 import { detectProfessorsClassic } from './detector-classic';
+import { detectProfessorsGeneric } from './detector-generic';
 import { detectProfessorsNew } from './detector-new';
 
 export interface DetectedProfessor {
@@ -27,7 +28,13 @@ export const DETECT_DEBOUNCE_MS = 250;
  * other layout, and a page that somehow mixes the two is still fully covered.
  */
 export function detectProfessors(doc: Document): DetectedProfessor[] {
-  return [...detectProfessorsClassic(doc), ...detectProfessorsNew(doc)];
+  const known = [...detectProfessorsClassic(doc), ...detectProfessorsNew(doc)];
+  if (known.length > 0) return known;
+
+  // Neither known layout matched. Fall back to structural inference, which is
+  // how pages like Class Schedule — card-based, no recognisable ids — get
+  // covered without a dedicated detector for every UAccess view.
+  return detectProfessorsGeneric(doc);
 }
 
 /**

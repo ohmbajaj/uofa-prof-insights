@@ -188,6 +188,21 @@ export interface ProfessorMatch {
   confidence: MatchConfidence;
 }
 
+/** Orders candidates by evidence and returns the best, with the rest as alternates. */
+function rankCandidates(candidates: TeacherNode[], first: string): ProfessorMatch | null {
+  if (candidates.length === 0) return null;
+
+  const ranked = [...candidates].sort((a, b) => (b.numRatings ?? 0) - (a.numRatings ?? 0));
+  const [best, ...alternates] = ranked;
+  if (!best) return null;
+
+  return {
+    node: best,
+    alternates,
+    confidence: comparableName(best.firstName ?? '') === first ? 'exact' : 'nickname',
+  };
+}
+
 /**
  * Picks the RMP profile that actually corresponds to a UAccess instructor.
  *
@@ -208,6 +223,20 @@ export interface ProfessorMatch {
 export function selectMatch(nodes: TeacherNode[], name: string): ProfessorMatch | null {
   const { first, last } = splitName(name);
   if (!last) return null;
+
+  /*
+   * A single word could be either name. "Xinchen" is a given name; "Mercer" is
+   * a family name; nothing in the string says which. Match against both rather
+   * than assuming a surname and reporting "no such professor" for half the
+   * queries people actually type.
+   */
+  if (!first) {
+    const either = nodes.filter(
+      (n) =>
+        comparableName(n.lastName ?? '') === last || comparableName(n.firstName ?? '') === last,
+    );
+    return rankCandidates(either, last);
+  }
 
   const sameSurname = nodes.filter((n) => comparableName(n.lastName ?? '') === last);
   if (sameSurname.length === 0) return null;
@@ -358,9 +387,11 @@ export function selectLooseMatch(nodes: TeacherNode[], name: string): ProfessorM
   if (!last) return null;
 
   const candidates = nodes.filter((n) => {
+    // A lone word may be either name, so accept a loose hit on either.
+    if (!first) {
+      return looselyMatches(last, n.lastName ?? '') || looselyMatches(last, n.firstName ?? '');
+    }
     if (!looselyMatches(last, n.lastName ?? '')) return false;
-    // With no given name to go on, a surname match is enough.
-    if (!first) return true;
     return givenNamesMatch(n.firstName ?? '', first) || looselyMatches(first, n.firstName ?? '');
   });
 
