@@ -46,6 +46,23 @@ export function getRatingColor(rating: number | null): string {
 }
 
 /**
+ * Normalizes a free-text course label into a comparable code.
+ *
+ * Used on both sides: RMP reviews carry a course typed by the student, and
+ * UAccess prints its own formatting. The same course therefore arrives as
+ * "CSC110", "csc 110", "CSC-110" or "CSC 110". Everything is upper-cased with
+ * separators stripped. A bare number cannot be attributed to a subject, so it
+ * is dropped rather than guessed at.
+ */
+export function normalizeCourseCode(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!cleaned) return null;
+  if (!/^[A-Z]{2,5}\d{2,4}[A-Z]?$/.test(cleaned)) return null;
+  return cleaned;
+}
+
+/**
  * Stable storage key for a professor. Case- and punctuation-insensitive so
  * "Rick Mercer", "rick mercer" and "Mercer, Rick " collapse onto one entry
  * once the name has been run through `normalizeNameForRMP`.

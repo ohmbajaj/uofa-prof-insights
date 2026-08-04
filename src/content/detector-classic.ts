@@ -1,5 +1,5 @@
 import { NON_INSTRUCTOR_NAMES } from '@shared/constants';
-import { normalizeNameForRMP } from '@shared/utils';
+import { normalizeCourseCode, normalizeNameForRMP } from '@shared/utils';
 import type { DetectedProfessor } from './detector';
 
 /**
@@ -90,6 +90,22 @@ export function isRealInstructor(rawName: string): boolean {
   return !NON_INSTRUCTOR_NAMES.has(rawName.trim().toLowerCase());
 }
 
+/**
+ * Course code for a results row.
+ *
+ * The classic grid puts it in the first data cell ("CSC 110"). Falls back to
+ * the table's own heading, since PeopleSoft repeats the course above each
+ * scroll area.
+ */
+function courseCodeForRow(row: HTMLTableRowElement, table: HTMLTableElement): string | undefined {
+  const firstCell = row.querySelector('td');
+  const fromCell = normalizeCourseCode(firstCell?.textContent ?? null);
+  if (fromCell) return fromCell;
+
+  const heading = table.previousElementSibling?.textContent ?? '';
+  return normalizeCourseCode(heading.split(/[-–—]/)[0] ?? null) ?? undefined;
+}
+
 function detectInTable(table: HTMLTableElement): DetectedProfessor[] {
   const found: DetectedProfessor[] = [];
   const column = instructorColumn(table);
@@ -106,9 +122,16 @@ function detectInTable(table: HTMLTableElement): DetectedProfessor[] {
       (column === null ? null : cellAtColumn(row, column));
     if (!cell) continue;
 
+    const courseCode = courseCodeForRow(row, table);
+
     for (const rawName of extractNameLines(cell)) {
       if (!isRealInstructor(rawName)) continue;
-      found.push({ element: cell, name: normalizeNameForRMP(rawName), rawName });
+      found.push({
+        element: cell,
+        name: normalizeNameForRMP(rawName),
+        rawName,
+        ...(courseCode ? { courseCode } : {}),
+      });
     }
   }
 

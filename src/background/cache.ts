@@ -1,4 +1,5 @@
 import {
+  CACHE_SCHEMA_VERSION,
   CACHE_STORAGE_KEY,
   DEFAULT_SETTINGS as DEFAULTS,
   MAX_CACHE_ENTRIES,
@@ -44,11 +45,17 @@ function isCacheMap(value: unknown): value is CacheMap {
 }
 
 /**
- * Drops expired entries, then trims to MAX_CACHE_ENTRIES by evicting the
- * least-recently-fetched records first.
+ * Drops expired and stale-shaped entries, then trims to MAX_CACHE_ENTRIES by
+ * evicting the least-recently-fetched records first.
+ *
+ * Entries written by an older ProfessorData shape are discarded rather than
+ * migrated: they are one cheap refetch away, whereas migration would mean
+ * carrying every historical shape forever.
  */
 function prune(map: CacheMap, now: number): CacheMap {
-  const live = Object.entries(map).filter(([, entry]) => entry.expiresAt > now);
+  const live = Object.entries(map).filter(
+    ([, entry]) => entry.expiresAt > now && entry.version === CACHE_SCHEMA_VERSION,
+  );
 
   if (live.length > MAX_CACHE_ENTRIES) {
     live.sort((a, b) => b[1].data.cachedAt - a[1].data.cachedAt);
@@ -78,7 +85,7 @@ export async function get(key: string): Promise<ProfessorData | null> {
   const entry = map[key];
   if (!entry) return null;
 
-  if (entry.expiresAt <= Date.now()) {
+  if (entry.expiresAt <= Date.now() || entry.version !== CACHE_SCHEMA_VERSION) {
     delete map[key];
     await writeMap(map);
     return null;
@@ -92,7 +99,12 @@ export async function set(key: string, data: ProfessorData): Promise<void> {
   const { cacheTTLDays } = await getSettings();
   const map = await readMap();
 
-  map[key] = { key, data, expiresAt: now + cacheTTLDays * MS_PER_DAY };
+  map[key] = {
+    key,
+    data,
+    expiresAt: now + cacheTTLDays * MS_PER_DAY,
+    version: CACHE_SCHEMA_VERSION,
+  };
   await writeMap(prune(map, now));
 }
 

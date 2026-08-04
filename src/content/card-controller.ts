@@ -80,7 +80,11 @@ export function updateOpenCard(name: string, data: ProfessorData | null): void {
  * Opens (or moves) the detail card for `data`, anchored to `anchor`.
  * Clicking the same badge again closes it.
  */
-export function openCardFor(anchor: HTMLElement, data: ProfessorData): UPICard | null {
+export function openCardFor(
+  anchor: HTMLElement,
+  data: ProfessorData,
+  courseCode: string | null = null,
+): UPICard | null {
   const doc = anchor.ownerDocument;
   const win = doc.defaultView;
   if (!win) return null;
@@ -96,6 +100,7 @@ export function openCardFor(anchor: HTMLElement, data: ProfessorData): UPICard |
 
   const card = doc.createElement(CARD_TAG) as UPICard;
   card.dataset.upiAnchorId = anchorId(anchor);
+  card.courseCode = courseCode;
   card.data = data;
 
   // Keep the card clear of the comparison sidebar when it is open.

@@ -45,4 +45,43 @@ describe.skipIf(!live)('rmp-api (live)', () => {
     const prof = await searchProfessor('Rick Miller');
     expect(prof?.university ?? 'University of Arizona').toBe('University of Arizona');
   }, 30_000);
+
+  /**
+   * The duplicate-profile case, against production data.
+   *
+   * UAccess lists this instructor as "Mercer, Richard". RMP carries two UofA
+   * Computer Science profiles: "Richard Mercer" with a single 1.0 review, and
+   * "Rick Mercer" with 160+ reviews averaging ~2.9. Exact-name matching picked
+   * the one-review profile and reported 1.0.
+   */
+  it('resolves the UAccess roster name to the well-evidenced profile', async () => {
+    const prof = await searchProfessor('Richard Mercer');
+
+    expect(prof).not.toBeNull();
+    expect(prof?.numRatings).toBeGreaterThan(50);
+    expect(prof?.matchConfidence).toBe('nickname');
+    expect(prof?.alternateProfiles.length).toBeGreaterThan(0);
+
+    console.log(
+      '[live] "Richard Mercer" ->',
+      `${prof?.name} (${prof?.overallRating}, ${prof?.numRatings} ratings)`,
+      '| alternates:',
+      prof?.alternateProfiles.map((a) => `${a.name} (${a.numRatings})`).join(', '),
+    );
+  }, 30_000);
+
+  it('derives per-course ratings from real review data', async () => {
+    const prof = await searchProfessor('Rick Mercer');
+
+    expect(prof?.courseRatings.length).toBeGreaterThan(0);
+    for (const course of prof?.courseRatings ?? []) {
+      expect(course.course).toMatch(/^[A-Z]{2,5}\d{2,4}[A-Z]?$/);
+      expect(course.numRatings).toBeGreaterThanOrEqual(3);
+    }
+
+    console.log(
+      '[live] course breakdown:',
+      prof?.courseRatings.map((c) => `${c.course}: ${c.rating} (${c.numRatings})`).join(', '),
+    );
+  }, 30_000);
 });

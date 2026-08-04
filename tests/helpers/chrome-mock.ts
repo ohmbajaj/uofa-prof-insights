@@ -65,6 +65,9 @@ export function makeProfessor(patch: Partial<ProfessorData> = {}): ProfessorData
     topTags: ['Caring', 'Lecture heavy'],
     rmpUrl: `https://www.ratemyprofessors.com/professor/${counter}`,
     cachedAt: Date.now(),
+    matchConfidence: 'exact',
+    alternateProfiles: [],
+    courseRatings: [],
     ...patch,
   };
 }

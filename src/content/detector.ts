@@ -9,6 +9,12 @@ export interface DetectedProfessor {
   name: string;
   /** Original UAccess text, e.g. "Mercer, Richard". Kept for debugging. */
   rawName: string;
+  /**
+   * Course this section belongs to, e.g. "CSC110", when the page exposes it.
+   * Lets the card surface this professor's rating *for this course* rather than
+   * their lifetime average across everything they teach.
+   */
+  courseCode?: string;
 }
 
 export const DETECT_DEBOUNCE_MS = 250;

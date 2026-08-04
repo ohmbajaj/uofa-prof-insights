@@ -83,6 +83,9 @@ function professor(patch: Partial<ProfessorData> = {}): ProfessorData {
     topTags: ['Lecture heavy'],
     rmpUrl: 'https://www.ratemyprofessors.com/professor/12302',
     cachedAt: Date.now(),
+    matchConfidence: 'exact',
+    alternateProfiles: [],
+    courseRatings: [],
     ...patch,
   };
 }

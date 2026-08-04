@@ -58,7 +58,7 @@ export function injectBadges(profs: DetectedProfessor[]): InjectedBadge[] {
       // Only a resolved professor has anything to show. Loading, error and
       // "no match" states stay as the badge alone.
       if (detail && detail !== 'loading' && detail !== 'error') {
-        openCardFor(badge, detail);
+        openCardFor(badge, detail, professor.courseCode ?? null);
       }
     });
 

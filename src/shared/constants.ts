@@ -41,12 +41,31 @@ export const MAX_CACHE_TTL_DAYS = 90;
 /** Minimum number of instructors before the comparison sidebar is worth showing. */
 export const MIN_COMPARISON_ROWS = 2;
 
+/** Caps on the detail card's supplementary lists, to keep it a card and not a page. */
+export const MAX_COURSES_SHOWN = 4;
+export const MAX_ALTERNATES_SHOWN = 3;
+
 /** RMP sentinel meaning "not enough data" for wouldTakeAgainPercent. */
 export const RMP_NO_DATA_SENTINEL = -1;
 
-/** How many recent ratings to pull when tallying top tags. */
+/** How many recent ratings to pull when tallying tags and per-course averages. */
 export const TAG_SAMPLE_SIZE = 40;
 export const MAX_TOP_TAGS = 5;
+
+/**
+ * Minimum reviews before a per-course average is shown. One review is noise,
+ * and printing it next to a 164-review overall implies precision that is absent.
+ */
+export const MIN_COURSE_RATINGS = 3;
+
+/** Bumped whenever ProfessorData's shape changes; older entries are discarded. */
+export const CACHE_SCHEMA_VERSION = 2;
+
+/**
+ * Results RMP returns per search page. A full page means the list was probably
+ * cut short, so a surname search may not contain the professor we want.
+ */
+export const SEARCH_PAGE_SIZE = 10;
 
 /**
  * Hosts that actually serve UAccess. `uaccess.arizona.edu` on its own is only

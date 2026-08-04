@@ -1,5 +1,5 @@
-import { getRatingColor } from '@shared/utils';
-import { COLOR_UNKNOWN } from '@shared/constants';
+import { getRatingColor, normalizeCourseCode } from '@shared/utils';
+import { COLOR_UNKNOWN, MAX_ALTERNATES_SHOWN, MAX_COURSES_SHOWN } from '@shared/constants';
 import type { ProfessorData } from '@shared/types';
 
 export const CARD_TAG = 'upi-card';
@@ -75,6 +75,47 @@ const STYLES = `
 
   .empty { color: #666; font-size: 12px; margin-bottom: 10px; }
 
+  .section {
+    margin-bottom: 10px;
+    padding-top: 8px;
+    border-top: 1px solid #eee;
+  }
+  .section h3 {
+    margin: 0 0 5px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #666;
+  }
+
+  .course {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 2px 0;
+  }
+  .course .code { font-weight: 600; }
+  .course .n { color: #888; font-size: 11px; }
+  .course .score { font-weight: 700; color: var(--course-color, #1a1a1a); }
+  .course.is-current .code::after {
+    content: ' · this course';
+    font-weight: 400;
+    color: #0c234b;
+    font-size: 11px;
+  }
+
+  .alt {
+    display: block;
+    color: #555;
+    font-size: 11px;
+    text-decoration: none;
+    padding: 1px 0;
+  }
+  .alt:hover { text-decoration: underline; }
+  .alt .why { color: #888; }
+
   a.rmp {
     display: inline-block;
     color: #0c234b;
@@ -143,6 +184,8 @@ export class UPICard extends HTMLElement {
   #body: HTMLElement;
   #data: ProfessorData | null = null;
   #busy = false;
+  /** Course being browsed in UAccess, so its rating can be pinned to the top. */
+  #courseCode: string | null = null;
 
   constructor() {
     super();
@@ -171,6 +214,16 @@ export class UPICard extends HTMLElement {
     this.#data = value;
     // A completed refresh clears the pending state.
     this.#busy = false;
+    this.#render();
+  }
+
+  /** Course the user is browsing; its rating is pinned and labelled. */
+  get courseCode(): string | null {
+    return this.#courseCode;
+  }
+
+  set courseCode(value: string | null) {
+    this.#courseCode = value;
     this.#render();
   }
 
@@ -245,6 +298,9 @@ export class UPICard extends HTMLElement {
       this.#body.appendChild(empty);
     }
 
+    this.#renderCourses(data);
+    this.#renderAlternates(data);
+
     const link = doc.createElement('a');
     link.className = 'rmp';
     link.href = data.rmpUrl;
@@ -278,6 +334,96 @@ export class UPICard extends HTMLElement {
     footer.append(age, refresh);
 
     this.#body.append(link, footer);
+  }
+
+  /**
+   * Per-course breakdown, with the course being browsed pinned to the top.
+   *
+   * This is the number that answers the actual question — a professor can be
+   * strong in a survey course and punishing in a seminar, and the headline
+   * average hides that.
+   */
+  #renderCourses(data: ProfessorData): void {
+    if (data.courseRatings.length === 0) return;
+    const doc = this.ownerDocument;
+
+    const current = this.#courseCode ? normalizeCourseCode(this.#courseCode) : null;
+    const ordered = [...data.courseRatings].sort((a, b) => {
+      if (a.course === current) return -1;
+      if (b.course === current) return 1;
+      return b.numRatings - a.numRatings;
+    });
+
+    const section = doc.createElement('div');
+    section.className = 'section';
+    const heading = doc.createElement('h3');
+    heading.textContent = 'Recent ratings by course';
+    section.appendChild(heading);
+
+    for (const course of ordered.slice(0, MAX_COURSES_SHOWN)) {
+      const row = doc.createElement('div');
+      row.className = course.course === current ? 'course is-current' : 'course';
+
+      const code = doc.createElement('span');
+      code.className = 'code';
+      code.textContent = course.course;
+
+      const right = doc.createElement('span');
+      const score = doc.createElement('span');
+      score.className = 'score';
+      score.textContent = course.rating === null ? '—' : course.rating.toFixed(1);
+      score.style.setProperty('--course-color', getRatingColor(course.rating));
+
+      const count = doc.createElement('span');
+      count.className = 'n';
+      count.textContent = ` (${course.numRatings})`;
+
+      right.append(score, count);
+      row.append(code, right);
+      section.appendChild(row);
+    }
+
+    this.#body.appendChild(section);
+  }
+
+  /**
+   * Other RMP profiles that look like the same person.
+   *
+   * Shown rather than hidden: RMP has no deduplication, and when we pick the
+   * better-evidenced of two profiles the user deserves to see that a choice was
+   * made and where the other numbers live.
+   */
+  #renderAlternates(data: ProfessorData): void {
+    if (data.alternateProfiles.length === 0) return;
+    const doc = this.ownerDocument;
+
+    const section = doc.createElement('div');
+    section.className = 'section';
+    const heading = doc.createElement('h3');
+    heading.textContent =
+      data.matchConfidence === 'nickname' ? 'Also listed on RMP as' : 'Duplicate profiles';
+    section.appendChild(heading);
+
+    for (const alt of data.alternateProfiles.slice(0, MAX_ALTERNATES_SHOWN)) {
+      const link = doc.createElement('a');
+      link.className = 'alt';
+      link.href = alt.rmpUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+
+      const rating = alt.overallRating === null ? 'unrated' : alt.overallRating.toFixed(1);
+      const plural = alt.numRatings === 1 ? 'rating' : 'ratings';
+      link.append(
+        doc.createTextNode(`${alt.name} — ${rating} `),
+        Object.assign(doc.createElement('span'), {
+          className: 'why',
+          textContent: `(${alt.numRatings} ${plural})`,
+        }),
+      );
+      section.appendChild(link);
+    }
+
+    this.#body.appendChild(section);
   }
 
   #stat(value: string, label: string, primary = false): HTMLElement {

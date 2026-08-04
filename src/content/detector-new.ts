@@ -1,4 +1,4 @@
-import { normalizeNameForRMP } from '@shared/utils';
+import { normalizeCourseCode, normalizeNameForRMP } from '@shared/utils';
 import { extractNameLines, isRealInstructor } from './detector-classic';
 import type { DetectedProfessor } from './detector';
 
@@ -16,12 +16,21 @@ export function detectProfessorsNew(doc: Document): DetectedProfessor[] {
   const found: DetectedProfessor[] = [];
 
   for (const panel of panels) {
+    // Every section inside a result panel belongs to the panel's course.
+    const courseCode =
+      normalizeCourseCode(panel.querySelector('.courseCode')?.textContent ?? null) ?? undefined;
+
     for (const element of panel.querySelectorAll<HTMLElement>(INSTRUCTOR_SELECTOR)) {
       // Same placeholder filtering as the classic table — a "Staff" section is
       // just as unsearchable here.
       for (const rawName of extractNameLines(element)) {
         if (!isRealInstructor(rawName)) continue;
-        found.push({ element, name: normalizeNameForRMP(rawName), rawName });
+        found.push({
+          element,
+          name: normalizeNameForRMP(rawName),
+          rawName,
+          ...(courseCode ? { courseCode } : {}),
+        });
       }
     }
   }
