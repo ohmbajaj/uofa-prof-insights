@@ -42,6 +42,29 @@ const results = new Map<string, ProfessorData | null>();
 /** Most recent detection pass, used to build the comparison rows. */
 let detected: DetectedProfessor[] = [];
 
+/**
+ * Recomputes each badge's standing among the rated instructors on the page.
+ *
+ * Runs after every resolution because the ranking is only meaningful once
+ * enough neighbours have loaded, and a professor's position shifts as more
+ * results arrive.
+ */
+function refreshRanks(): void {
+  const rated = [...new Set(detected.map((p) => p.name))]
+    .map((name) => ({ name, rating: results.get(name)?.overallRating ?? null }))
+    .filter((entry): entry is { name: string; rating: number } => entry.rating !== null)
+    .sort((a, b) => b.rating - a.rating);
+
+  const total = rated.length;
+  const positions = new Map(rated.map((entry, index) => [entry.name, index + 1]));
+
+  for (const badge of document.querySelectorAll<UPIBadge>(BADGE_TAG)) {
+    const name = badge.dataset.upiName;
+    const rank = name ? positions.get(name) : undefined;
+    badge.rank = rank === undefined ? null : { rank, total };
+  }
+}
+
 function refreshSidebar(): void {
   const names = [...new Set(detected.map((p) => p.name))];
   const rows: ComparisonRow[] = names.map((name) => ({
@@ -86,6 +109,7 @@ async function resolveBadge(badge: UPIBadge, name: string, refresh = false): Pro
     updateOpenCard(name, null);
     console.error(`[UPI] lookup failed for "${name}":`, error);
   }
+  refreshRanks();
   refreshSidebar();
 }
 

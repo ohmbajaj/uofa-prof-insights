@@ -136,6 +136,53 @@ describe('UPIBadge rendering', () => {
   });
 });
 
+describe('UPIBadge rank context', () => {
+  it('marks the best-rated instructor on the page', () => {
+    const badge = mount();
+    badge.data = makeProfessor({ overallRating: 4.2 });
+    badge.rank = { rank: 1, total: 8 };
+
+    expect(text(badge)).toContain('BEST');
+    expect(badge.title).toContain('ranked 1 of 8');
+  });
+
+  it('does not mark a professor who is not top', () => {
+    const badge = mount();
+    badge.data = makeProfessor({ overallRating: 3.1 });
+    badge.rank = { rank: 3, total: 8 };
+
+    expect(text(badge)).not.toContain('BEST');
+    expect(badge.title).toContain('ranked 3 of 8');
+  });
+
+  it('stays quiet when there is nothing to compare against', () => {
+    const badge = mount();
+    badge.data = makeProfessor({ overallRating: 4.2 });
+    badge.rank = { rank: 1, total: 1 };
+
+    expect(text(badge)).not.toContain('BEST');
+    expect(badge.title).not.toContain('ranked');
+  });
+
+  it('omits rank entirely when unknown', () => {
+    const badge = mount();
+    badge.data = makeProfessor({ overallRating: 4.2 });
+
+    expect(badge.rank).toBeNull();
+    expect(badge.title).not.toContain('ranked');
+  });
+
+  it('updates when the ranking shifts as more results load', () => {
+    const badge = mount();
+    badge.data = makeProfessor({ overallRating: 4.2 });
+    badge.rank = { rank: 1, total: 2 };
+    expect(text(badge)).toContain('BEST');
+
+    badge.rank = { rank: 2, total: 5 };
+    expect(text(badge)).not.toContain('BEST');
+  });
+});
+
 describe('UPIBadge click events', () => {
   it('emits upi-badge-click carrying the professor data', () => {
     const badge = mount();

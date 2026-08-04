@@ -9,6 +9,21 @@ export const BADGE_CLICK_EVENT = 'upi-badge-click';
 export type BadgeData = ProfessorData | null | 'loading' | 'error';
 
 /**
+ * Where this professor sits among the rated instructors on the same page.
+ *
+ * A bare 2.9 is close to meaningless; "2.9, and the best of the eight sections
+ * offered" is a decision. Only something that can see the whole results page
+ * can work this out, which is precisely what a tab open on RateMyProfessors
+ * cannot do.
+ */
+export interface RankContext {
+  /** 1-based position among rated instructors, best first. */
+  rank: number;
+  /** How many instructors on the page have a rating at all. */
+  total: number;
+}
+
+/**
  * Styles live inside the shadow root so UAccess's PeopleSoft stylesheets cannot
  * reach in and our rules cannot leak out. Sizing is in `em` and the host is
  * `inline-flex` with `vertical-align: middle`, so a badge flows inside a table
@@ -61,6 +76,19 @@ const STYLES = `
     font-size: 0.9em;
   }
 
+  /* Rank pill, shown only when this professor is the pick of the page. */
+  .rank {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 4px;
+    padding: 1px 5px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.28);
+    font-size: 0.85em;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
   /* Loading skeleton */
   .badge.is-loading {
     background: #e3e3e3;
@@ -86,6 +114,7 @@ export class UPIBadge extends HTMLElement {
   #shadow: ShadowRoot;
   #badge: HTMLSpanElement;
   #data: BadgeData = 'loading';
+  #rank: RankContext | null = null;
 
   constructor() {
     super();
@@ -140,6 +169,16 @@ export class UPIBadge extends HTMLElement {
     this.#render();
   }
 
+  /** Position among rated instructors on the same page, or null if unknown. */
+  get rank(): RankContext | null {
+    return this.#rank;
+  }
+
+  set rank(value: RankContext | null) {
+    this.#rank = value;
+    this.#render();
+  }
+
   #render(): void {
     const doc = this.ownerDocument;
     const data = this.#data;
@@ -183,11 +222,26 @@ export class UPIBadge extends HTMLElement {
     count.textContent = `(${data.numRatings})`;
     this.#badge.replaceChildren(doc.createTextNode(`★ ${rating}`), count);
 
+    // Only the top pick earns a pill. Labelling every row "3 of 8" is noise;
+    // the one worth acting on is "this is the best section available".
+    const isBestOfSeveral = this.#rank !== null && this.#rank.rank === 1 && this.#rank.total > 1;
+    if (isBestOfSeveral) {
+      const pill = doc.createElement('span');
+      pill.className = 'rank';
+      pill.textContent = 'BEST';
+      this.#badge.appendChild(pill);
+    }
+
     const plural = data.numRatings === 1 ? 'rating' : 'ratings';
+    const context =
+      this.#rank !== null && this.#rank.total > 1
+        ? ` · ranked ${this.#rank.rank} of ${this.#rank.total} rated instructors here`
+        : '';
+
     this.#apply(
-      `Based on ${data.numRatings} ${plural} on RMP`,
+      `Based on ${data.numRatings} ${plural} on RMP${context}`,
       getRatingColor(data.overallRating),
-      `${data.name}: ${rating} out of 5, based on ${data.numRatings} ${plural}`,
+      `${data.name}: ${rating} out of 5, based on ${data.numRatings} ${plural}${context}`,
     );
   }
 
