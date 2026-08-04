@@ -10,15 +10,7 @@
  * Usage: node scripts/verify-browser.mjs   (run `npm run build` first)
  */
 import { createServer } from 'node:http';
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, extname, join } from 'node:path';
@@ -386,17 +378,39 @@ const bundle = findContentBundle();
 console.log(`chrome:  ${chrome}`);
 console.log(`bundle:  ${bundle}`);
 
-writeFileSync(join(DIST, '__harness.html'), harnessHtml(bundle));
-writeFileSync(join(DIST, '__popup.html'), popupHtml(findPopupAssets(), 'status'));
-writeFileSync(join(DIST, '__settings.html'), popupHtml(findPopupAssets(), 'settings'));
 mkdirSync(OUT, { recursive: true });
 
-/** Reports arrive by POST, one per harness page, keyed by filename. */
+// The harness must never leave anything behind that would make dist/
+// unloadable as an unpacked extension.
+const reserved = readdirSync(DIST).filter((f) => f.startsWith('_'));
+if (reserved.length > 0) {
+  console.error(
+    `dist/ contains reserved '_'-prefixed entries, which Chrome refuses to load:\n  ${reserved.join('\n  ')}\nRun \`npm run build\` to clear them.`,
+  );
+  process.exit(1);
+}
+
+/** Reports arrive by POST, one per harness page, keyed by route. */
 const pending = new Map();
 function awaitReport(key) {
   return new Promise((resolve) => pending.set(key, resolve));
 }
 let currentPage = null;
+
+/**
+ * Harness pages are served from memory, never written to disk.
+ *
+ * They used to be written into dist/ as `__harness.html` and friends, which
+ * quietly made the whole directory unloadable: Chrome rejects an unpacked
+ * extension containing any file whose name starts with `_`, since those are
+ * reserved for `_locales` and `_metadata`. `npm run build` cleared them, so
+ * the breakage only showed up when someone loaded dist/ without rebuilding.
+ */
+const virtualPages = new Map([
+  ['/harness', harnessHtml(bundle)],
+  ['/popup', popupHtml(findPopupAssets(), 'status')],
+  ['/settings', popupHtml(findPopupAssets(), 'settings')],
+]);
 
 const server = createServer((req, res) => {
   const path = decodeURIComponent((req.url ?? '/').split('?')[0]);
@@ -408,6 +422,14 @@ const server = createServer((req, res) => {
       res.writeHead(204).end();
       pending.get(currentPage)?.(JSON.parse(body));
     });
+    return;
+  }
+
+  // Harness pages come from memory; everything else is a real built asset.
+  const page = virtualPages.get(path);
+  if (page) {
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.end(page);
     return;
   }
 
@@ -434,8 +456,8 @@ async function runPage(page, screenshot, viewport) {
   // A throwaway profile is essential: without it Chrome hands the URL to the
   // already-running browser and the launched process exits (or hangs).
   const profile = mkdtempSync(join(tmpdir(), 'upi-verify-'));
-  currentPage = page;
-  const waiting = awaitReport(page);
+  currentPage = `/${page}`;
+  const waiting = awaitReport(currentPage);
 
   const child = spawn(
     chrome,
@@ -476,9 +498,9 @@ let report;
 let popup;
 let settings;
 try {
-  report = await runPage('__harness.html', shot, '1280,1000');
-  popup = await runPage('__popup.html', popupShot, '420,640');
-  settings = await runPage('__settings.html', settingsShot, '420,560');
+  report = await runPage('harness', shot, '1280,1000');
+  popup = await runPage('popup', popupShot, '420,640');
+  settings = await runPage('settings', settingsShot, '420,560');
 } catch (error) {
   console.error(`FAILED: ${error.message}`);
   console.error('The bundle most likely threw before reporting.');

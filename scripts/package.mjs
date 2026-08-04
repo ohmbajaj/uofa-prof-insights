@@ -24,21 +24,31 @@ if (!existsSync(DIST)) {
 const manifest = JSON.parse(await readFile(join(DIST, 'manifest.json'), 'utf8'));
 const pkg = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'));
 
-/**
- * Every file under `dir`, as paths relative to DIST with forward slashes.
- *
- * Skips `__`-prefixed files: verify-browser.mjs writes its harness pages into
- * dist/, and those must never reach a shipped build.
- */
+/** Every file under `dir`, as paths relative to DIST with forward slashes. */
 function walk(dir) {
   const out = [];
   for (const entry of readdirSync(dir)) {
-    if (entry.startsWith('__')) continue;
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) out.push(...walk(full));
     else out.push(relative(DIST, full).split(sep).join('/'));
   }
   return out.sort();
+}
+
+/**
+ * Chrome refuses to load an unpacked extension containing any entry whose name
+ * starts with `_` — those are reserved for `_locales` and `_metadata`. Zipping
+ * around such a file would hide the fact that dist/ itself cannot be loaded,
+ * so this fails instead.
+ */
+function assertNoReservedNames(files) {
+  const reserved = files.filter((f) => f.split('/').some((part) => part.startsWith('_')));
+  if (reserved.length === 0) return;
+
+  console.error(
+    `dist/ contains reserved '_'-prefixed entries, which Chrome will not load:\n  ${reserved.join('\n  ')}\nRun \`npm run build\` to clear them.`,
+  );
+  process.exit(1);
 }
 
 /** DOS date/time as used by the ZIP local header. */
@@ -126,6 +136,7 @@ if (files.length === 0) {
   console.error('dist/ is empty — run `npm run build` first.');
   process.exit(1);
 }
+assertNoReservedNames(files);
 
 mkdirSync(RELEASE, { recursive: true });
 const outFile = join(RELEASE, `${pkg.name}-${manifest.version}.zip`);
