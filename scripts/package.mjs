@@ -24,10 +24,16 @@ if (!existsSync(DIST)) {
 const manifest = JSON.parse(await readFile(join(DIST, 'manifest.json'), 'utf8'));
 const pkg = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'));
 
-/** Every file under `dir`, as paths relative to DIST with forward slashes. */
+/**
+ * Every file under `dir`, as paths relative to DIST with forward slashes.
+ *
+ * Skips `__`-prefixed files: verify-browser.mjs writes its harness pages into
+ * dist/, and those must never reach a shipped build.
+ */
 function walk(dir) {
   const out = [];
   for (const entry of readdirSync(dir)) {
+    if (entry.startsWith('__')) continue;
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) out.push(...walk(full));
     else out.push(relative(DIST, full).split(sep).join('/'));

@@ -73,6 +73,18 @@ function findContentBundle() {
   return `assets/${bundle}`;
 }
 
+/** The popup's React bundle and stylesheet. */
+function findPopupAssets() {
+  const assets = readdirSync(join(DIST, 'assets'));
+  const js = assets.find((f) => f.startsWith('index.html-') && f.endsWith('.js'));
+  const css = assets.find((f) => f.endsWith('.css'));
+  if (!js) {
+    console.error('Could not locate the popup bundle in dist/assets.');
+    process.exit(1);
+  }
+  return { js: `assets/${js}`, css: css ? `assets/${css}` : null };
+}
+
 // ------------------------------------------------------------ the mock page
 
 const CLASSIC_ROWS = [
@@ -282,6 +294,86 @@ function harnessHtml(bundlePath) {
 </html>`;
 }
 
+/** Renders the real popup bundle with a stubbed service worker. */
+function popupHtml({ js, css }, tab = 'status') {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Popup harness</title>
+${css ? `<link rel="stylesheet" href="./${css}">` : ''}
+<style>
+  body { background: #e9ecef; }
+  .frame { width: 360px; margin: 16px; border: 1px solid #c9c9c9; box-shadow: 0 2px 10px rgba(0,0,0,.15); background: #fff; }
+</style>
+</head>
+<body>
+<div class="frame"><div id="root"></div></div>
+<script>
+  window.__APP_VERSION__ = '1.0.0';
+  window.chrome = {
+    runtime: {
+      sendMessage: (m) => new Promise((resolve) => setTimeout(() => {
+        if (m.type === 'GET_CACHE_STATS') return resolve({ type: 'CACHE_STATS', stats: { count: 37, oldestAge: 3 * 86400000 } });
+        if (m.type === 'GET_SETTINGS') return resolve({ type: 'SETTINGS', settings: { autoDetect: true, showComparison: true, cacheTTLDays: 7 } });
+        if (m.type === 'SAVE_SETTINGS') return resolve({ type: 'SETTINGS', settings: { autoDetect: true, showComparison: true, cacheTTLDays: 7, ...m.settings } });
+        if (m.type === 'CLEAR_CACHE') return resolve({ type: 'CACHE_CLEARED' });
+        if (m.type === 'LOOKUP_PROFESSOR') return resolve({
+          type: 'PROFESSOR_RESULT', name: m.name,
+          data: { id: 'x', name: 'Richard Mercer', department: 'Computer Science',
+            university: 'University of Arizona', overallRating: 2.9, difficulty: 2.9,
+            wouldTakeAgain: 48.6, numRatings: 164, topTags: ['Lecture heavy', 'Tough grader'],
+            rmpUrl: 'https://www.ratemyprofessors.com/professor/12302', cachedAt: Date.now() },
+        });
+        resolve({ type: 'ERROR', message: 'unhandled' });
+      }, 40)),
+    },
+  };
+</script>
+<script type="module" src="./${js}"></script>
+<script type="module">
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  await sleep(600);
+
+  const wantSettings = ${tab === 'settings'};
+  if (wantSettings) {
+    [...document.querySelectorAll('[role="tab"]')]
+      .find((t) => t.textContent === 'Settings')?.click();
+    await sleep(400);
+  }
+
+  // Drive a search so the result card is on screen for the screenshot.
+  const box = wantSettings ? null : document.querySelector('#upi-search');
+  if (box) {
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    setter.call(box, 'Richard Mercer');
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(60);
+    document.querySelector('form.searchbar')?.requestSubmit();
+    await sleep(400);
+  }
+
+  const text = document.body.innerText;
+  await fetch('/report', { method: 'POST', body: JSON.stringify({
+    page: wantSettings ? 'settings' : 'status',
+    mounted: !!document.querySelector('.app'),
+    tabs: [...document.querySelectorAll('[role="tab"]')].map((t) => t.textContent),
+    cacheCount: document.querySelector('.stat__value')?.textContent ?? null,
+    searchRendered: text.includes('Richard Mercer'),
+    showsDifficulty: /Difficulty 2\\.9/.test(text),
+    showsTags: text.includes('Lecture heavy'),
+    styled: getComputedStyle(document.querySelector('.app__header')).backgroundColor,
+    width: Math.round(document.querySelector('.app')?.getBoundingClientRect().width ?? 0),
+    settingsControls: [...document.querySelectorAll('.field label')].map((l) => l.textContent),
+    autoDetectChecked: document.querySelector('#autoDetect')?.checked ?? null,
+    ttlValue: document.querySelector('#cacheTTLDays')?.value ?? null,
+  })});
+  document.title = 'done';
+</script>
+</body>
+</html>`;
+}
+
 // ------------------------------------------------------------------- driver
 
 if (!existsSync(DIST)) {
@@ -295,12 +387,16 @@ console.log(`chrome:  ${chrome}`);
 console.log(`bundle:  ${bundle}`);
 
 writeFileSync(join(DIST, '__harness.html'), harnessHtml(bundle));
+writeFileSync(join(DIST, '__popup.html'), popupHtml(findPopupAssets(), 'status'));
+writeFileSync(join(DIST, '__settings.html'), popupHtml(findPopupAssets(), 'settings'));
 mkdirSync(OUT, { recursive: true });
 
-let onReport;
-const reportPromise = new Promise((resolve) => {
-  onReport = resolve;
-});
+/** Reports arrive by POST, one per harness page, keyed by filename. */
+const pending = new Map();
+function awaitReport(key) {
+  return new Promise((resolve) => pending.set(key, resolve));
+}
+let currentPage = null;
 
 const server = createServer((req, res) => {
   const path = decodeURIComponent((req.url ?? '/').split('?')[0]);
@@ -310,12 +406,12 @@ const server = createServer((req, res) => {
     req.on('data', (chunk) => (body += chunk));
     req.on('end', () => {
       res.writeHead(204).end();
-      onReport(JSON.parse(body));
+      pending.get(currentPage)?.(JSON.parse(body));
     });
     return;
   }
 
-  const file = join(DIST, path === '/' ? '__harness.html' : path);
+  const file = join(DIST, path);
   if (!existsSync(file)) {
     res.writeHead(404).end('not found');
     return;
@@ -330,48 +426,65 @@ const url = `http://127.0.0.1:${port}/`;
 console.log(`serving: ${url}\n`);
 
 const shot = join(OUT, 'uaccess-mock.png');
-// A throwaway profile is essential: without it Chrome hands the URL to the
-// already-running browser and the launched process exits (or hangs) immediately.
-const profile = mkdtempSync(join(tmpdir(), 'upi-verify-'));
+const popupShot = join(OUT, 'popup.png');
+const settingsShot = join(OUT, 'popup-settings.png');
 
-const child = spawn(
-  chrome,
-  [
-    '--headless=new',
-    `--user-data-dir=${profile}`,
-    '--disable-gpu',
-    '--no-first-run',
-    '--no-default-browser-check',
-    '--disable-background-networking',
-    '--disable-sync',
-    '--disable-default-apps',
-    '--hide-scrollbars',
-    '--window-size=1280,1000',
-    `--screenshot=${shot}`,
-    '--virtual-time-budget=8000',
-    url,
-  ],
-  { stdio: ['ignore', 'pipe', 'pipe'] },
-);
+/** Loads one harness page in a fresh headless Chrome and returns its report. */
+async function runPage(page, screenshot, viewport) {
+  // A throwaway profile is essential: without it Chrome hands the URL to the
+  // already-running browser and the launched process exits (or hangs).
+  const profile = mkdtempSync(join(tmpdir(), 'upi-verify-'));
+  currentPage = page;
+  const waiting = awaitReport(page);
 
-const exited = new Promise((resolve) => child.on('exit', resolve));
-const timeout = new Promise((_, reject) =>
-  setTimeout(() => reject(new Error('timed out waiting for the harness report')), 60_000),
-);
+  const child = spawn(
+    chrome,
+    [
+      '--headless=new',
+      `--user-data-dir=${profile}`,
+      '--disable-gpu',
+      '--no-first-run',
+      '--no-default-browser-check',
+      '--disable-background-networking',
+      '--disable-sync',
+      '--disable-default-apps',
+      '--hide-scrollbars',
+      `--window-size=${viewport}`,
+      `--screenshot=${screenshot}`,
+      '--virtual-time-budget=8000',
+      `${url}${page}`,
+    ],
+    { stdio: ['ignore', 'pipe', 'pipe'] },
+  );
+
+  const exited = new Promise((resolve) => child.on('exit', resolve));
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(`timed out waiting for ${page}`)), 60_000),
+  );
+
+  try {
+    const result = await Promise.race([waiting, timeout]);
+    await Promise.race([exited, new Promise((r) => setTimeout(r, 15_000))]);
+    return result;
+  } finally {
+    if (child.exitCode === null) child.kill();
+    rmSync(profile, { recursive: true, force: true });
+  }
+}
 
 let report;
+let popup;
+let settings;
 try {
-  report = await Promise.race([reportPromise, timeout]);
-  // Give Chrome its remaining virtual time so the screenshot lands.
-  await Promise.race([exited, new Promise((r) => setTimeout(r, 15_000))]);
+  report = await runPage('__harness.html', shot, '1280,1000');
+  popup = await runPage('__popup.html', popupShot, '420,640');
+  settings = await runPage('__settings.html', settingsShot, '420,560');
 } catch (error) {
   console.error(`FAILED: ${error.message}`);
-  console.error('The content script most likely threw before reporting.');
+  console.error('The bundle most likely threw before reporting.');
   process.exitCode = 1;
 } finally {
-  if (child.exitCode === null) child.kill();
   server.close();
-  rmSync(profile, { recursive: true, force: true });
 }
 
 if (report) {
@@ -394,6 +507,18 @@ if (report) {
     ['sidebar mounted', report.sidebar.mounted === true],
     ['sidebar ranked best-first', report.sidebar.scores?.[0] === '4.6'],
     ['sidebar does not cover instructor names', report.instructorCellsVisible === true],
+
+    ['popup mounted', popup?.mounted === true],
+    ['popup shows both tabs', popup?.tabs?.join(',') === 'Status,Settings'],
+    ['popup stylesheet applied', popup?.styled === 'rgb(12, 35, 75)'],
+    ['popup shows cache stats', popup?.cacheCount === '37'],
+    ['popup search renders a result', popup?.searchRendered === true],
+    ['popup result shows difficulty', popup?.showsDifficulty === true],
+    ['popup result shows tags', popup?.showsTags === true],
+
+    ['settings tab renders all three controls', settings?.settingsControls?.length === 3],
+    ['settings reflects stored autoDetect', settings?.autoDetectChecked === true],
+    ['settings reflects stored TTL', settings?.ttlValue === '7'],
   ];
 
   console.log('');
@@ -403,7 +528,10 @@ if (report) {
     if (!ok) failed++;
   }
 
-  console.log(`\nscreenshot: ${existsSync(shot) ? shot : '(not written)'}`);
+  console.log(`\nscreenshots:`);
+  console.log(`  ${existsSync(shot) ? shot : '(uaccess mock not written)'}`);
+  console.log(`  ${existsSync(popupShot) ? popupShot : '(popup not written)'}`);
+  console.log(`  ${existsSync(settingsShot) ? settingsShot : '(settings not written)'}`);
   if (failed > 0) {
     console.error(`\n${failed} browser check(s) failed.`);
     process.exitCode = 1;

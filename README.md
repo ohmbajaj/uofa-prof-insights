@@ -152,10 +152,12 @@ built bundle** in **real headless Chrome** against mock UAccess markup, takes
 measurements from the live page, and writes a screenshot to
 `release/verify/uaccess-mock.png`.
 
-It asserts, among other things, that custom elements upgrade, that badges stay
-inside their table cell, that row heights are byte-identical before and after
-injection, that nothing overflows horizontally, and that neither the card nor
-the sidebar covers the instructor column.
+24 checks across three surfaces — the injected UAccess page, the popup's Status
+tab, and its Settings tab. It asserts, among other things, that custom elements
+upgrade, that badges stay inside their table cell, that row heights are
+identical before and after injection, that nothing overflows horizontally, that
+neither the card nor the sidebar covers the instructor column, and that the
+popup renders its stored settings.
 
 Two real bugs came out of looking at that screenshot, both invisible to the
 numeric checks:
