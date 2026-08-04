@@ -344,11 +344,14 @@ export class UPICard extends HTMLElement {
    * average hides that.
    */
   #renderCourses(data: ProfessorData): void {
-    if (data.courseRatings.length === 0) return;
+    // Tolerate a record that predates these fields rather than throwing and
+    // taking the whole card down with it.
+    const courseRatings = data.courseRatings ?? [];
+    if (courseRatings.length === 0) return;
     const doc = this.ownerDocument;
 
     const current = this.#courseCode ? normalizeCourseCode(this.#courseCode) : null;
-    const ordered = [...data.courseRatings].sort((a, b) => {
+    const ordered = [...courseRatings].sort((a, b) => {
       if (a.course === current) return -1;
       if (b.course === current) return 1;
       return b.numRatings - a.numRatings;
@@ -394,7 +397,8 @@ export class UPICard extends HTMLElement {
    * made and where the other numbers live.
    */
   #renderAlternates(data: ProfessorData): void {
-    if (data.alternateProfiles.length === 0) return;
+    const alternates = data.alternateProfiles ?? [];
+    if (alternates.length === 0) return;
     const doc = this.ownerDocument;
 
     const section = doc.createElement('div');
@@ -404,7 +408,7 @@ export class UPICard extends HTMLElement {
       data.matchConfidence === 'nickname' ? 'Also listed on RMP as' : 'Duplicate profiles';
     section.appendChild(heading);
 
-    for (const alt of data.alternateProfiles.slice(0, MAX_ALTERNATES_SHOWN)) {
+    for (const alt of alternates.slice(0, MAX_ALTERNATES_SHOWN)) {
       const link = doc.createElement('a');
       link.className = 'alt';
       link.href = alt.rmpUrl;

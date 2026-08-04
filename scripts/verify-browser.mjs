@@ -176,7 +176,17 @@ function harnessHtml(bundlePath) {
   window.__baselineScrollWidth = document.documentElement.scrollWidth;
 
   const DB = {
-    'Richard Mercer': { rating: 2.9, difficulty: 2.9, wta: 48.6, n: 164, tags: ['Lecture heavy', 'Tough grader'] },
+    // Mirrors the real duplicate-profile case: the roster says "Mercer,
+    // Richard" and the well-evidenced profile is "Rick Mercer".
+    'Richard Mercer': {
+      name: 'Rick Mercer', rating: 2.9, difficulty: 2.9, wta: 48.6, n: 164,
+      tags: ['Lecture heavy', 'Tough grader'], confidence: 'nickname',
+      alternates: [{ name: 'Richard Mercer', overallRating: 1, numRatings: 1, rmpUrl: 'https://www.ratemyprofessors.com/professor/2794287' }],
+      courses: [
+        { course: 'CSC110', rating: 3.6, difficulty: 2.2, numRatings: 12 },
+        { course: 'CSC335', rating: 2.3, difficulty: 4.1, numRatings: 8 },
+      ],
+    },
     'Saumya Debray': { rating: 3.4, difficulty: 4.3, wta: 60, n: 21, tags: ['Get ready to read'] },
     "Sean O'Brien": { rating: 4.6, difficulty: 2.1, wta: 92, n: 8, tags: ['Caring'] },
   };
@@ -194,12 +204,15 @@ function harnessHtml(bundlePath) {
             type: 'PROFESSOR_RESULT',
             name: message.name,
             data: hit ? {
-              id: 'VGVhY2hlci0x', name: message.name,
+              id: 'VGVhY2hlci0x', name: hit.name ?? message.name,
               department: 'Computer Science', university: 'University of Arizona',
               overallRating: hit.rating, difficulty: hit.difficulty,
               wouldTakeAgain: hit.wta, numRatings: hit.n, topTags: hit.tags,
               rmpUrl: 'https://www.ratemyprofessors.com/professor/12302',
               cachedAt: Date.now() - 3 * 86400000,
+              matchConfidence: hit.confidence ?? 'exact',
+              alternateProfiles: hit.alternates ?? [],
+              courseRatings: hit.courses ?? [],
             } : null,
           });
         }, 60);
@@ -266,7 +279,17 @@ function harnessHtml(bundlePath) {
       withinViewport: cardRect.left >= 0 && cardRect.right <= window.innerWidth,
       clearOfSidebar: sidebar ? cardRect.right <= sidebar.getBoundingClientRect().left + 1 : true,
       text: (card.shadowRoot?.querySelector('.card')?.textContent ?? '').replace(/\\s+/g, ' ').trim(),
+      // The course being browsed must be pinned first and labelled.
+      courseRows: [...(card.shadowRoot?.querySelectorAll('.course .code') ?? [])].map((n) => n.textContent),
+      currentCourseFirst: card.shadowRoot?.querySelector('.course')?.classList.contains('is-current') ?? false,
+      alternatesShown: [...(card.shadowRoot?.querySelectorAll('.alt') ?? [])].map((n) => n.textContent.trim()),
     } : { opened: false },
+    // "BEST" must appear exactly once — on the top-rated instructor only.
+    bestPills: badges.filter((b) => (b.shadowRoot?.textContent ?? '').includes('BEST')).length,
+    bestPillOnTopRated: (() => {
+      const withPill = badges.find((b) => (b.shadowRoot?.textContent ?? '').includes('BEST'));
+      return withPill ? withPill.dataset.upiName : null;
+    })(),
     sidebar: sidebar ? {
       mounted: true,
       width: Math.round(sidebar.getBoundingClientRect().width),
@@ -529,6 +552,12 @@ if (report) {
     ['sidebar mounted', report.sidebar.mounted === true],
     ['sidebar ranked best-first', report.sidebar.scores?.[0] === '4.6'],
     ['sidebar does not cover instructor names', report.instructorCellsVisible === true],
+
+    ['course breakdown rendered', (report.card.courseRows?.length ?? 0) > 0],
+    ['browsed course pinned first', report.card.currentCourseFirst === true],
+    ['duplicate profile disclosed', (report.card.alternatesShown?.length ?? 0) > 0],
+    ['exactly one BEST pill', report.bestPills === 1],
+    ['BEST pill sits on the top-rated instructor', report.bestPillOnTopRated === "Sean O'Brien"],
 
     ['popup mounted', popup?.mounted === true],
     ['popup shows both tabs', popup?.tabs?.join(',') === 'Status,Settings'],
