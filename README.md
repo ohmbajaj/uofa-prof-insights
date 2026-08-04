@@ -5,38 +5,54 @@ UAccess, so you can see who's teaching a section without leaving registration.
 
 ## Status
 
-**Phase 1 complete** — badges are detected, injected, and resolved end to end
-against both UAccess layouts. Not yet verified in a real browser (see
-[Unverified](#unverified-in-a-real-browser)).
+**Phase 2 complete** — every module is implemented. Not yet verified in a real
+browser (see [Unverified](#unverified-in-a-real-browser)).
 
-| Layer                                | State                             |
-| ------------------------------------ | --------------------------------- |
-| `src/shared/*`                       | Done, tested                      |
-| `src/background/rmp-api.ts`          | Done, tested against the live API |
-| `src/background/cache.ts`            | Done, tested                      |
-| `src/background/message-handler.ts`  | Done, tested                      |
-| `src/content/detector*.ts`           | Done, tested (both layouts)       |
-| `src/content/components/Badge.ts`    | Done, tested                      |
-| `src/content/injector.ts`            | Done, tested                      |
-| `src/content/components/PopupCard`   | Stubbed — Phase 2                 |
-| `src/content/components/Comparison…` | Stubbed — Phase 2                 |
-| `src/popup/*`                        | Stubbed — Phase 2                 |
+| Layer                                         | State                             |
+| --------------------------------------------- | --------------------------------- |
+| `src/shared/*`                                | Done, tested                      |
+| `src/background/rmp-api.ts`                   | Done, tested against the live API |
+| `src/background/cache.ts`                     | Done, tested                      |
+| `src/background/message-handler.ts`           | Done, tested                      |
+| `src/content/detector*.ts`                    | Done, tested (both layouts)       |
+| `src/content/components/Badge.ts`             | Done, tested                      |
+| `src/content/injector.ts`                     | Done, tested                      |
+| `src/content/components/PopupCard.ts`         | Done, tested                      |
+| `src/content/components/ComparisonSidebar.ts` | Done, tested                      |
+| `src/popup/*` (Status, Settings, Search)      | Done, tested                      |
 
 ## How it works
 
 ```
 detector-classic.ts ─┐
-                     ├─> detector.ts ──> injector.ts ──> Badge (upi-badge)
-detector-new.ts    ──┘   (MutationObserver,   (dedupes,        │
-                          250ms debounce)      prunes stale)   │
-                                                               ▼
-                                   index.ts ──chrome.runtime.sendMessage──>
-                                   service-worker ──> cache ──> rmp-api
+                     ├─> detector.ts ──> injector.ts ──> Badge  <upi-badge>
+detector-new.ts    ──┘   (MutationObserver,  (dedupes,       │  click
+                          250ms debounce)     prunes stale)  └─> Card <upi-card>
+                                     │
+                                     └─> sidebar-controller ──> <upi-sidebar>
+                                                                (2+ instructors)
+       index.ts ──chrome.runtime.sendMessage──> service-worker ──> cache ──> rmp-api
+       popup/  ──────────────────────────────────────┘
 ```
 
 Both detectors run on every pass; each is a scoped `querySelectorAll` that
 returns nothing on the other layout, so no page sniffing is needed and a hybrid
 page is still covered.
+
+## Features
+
+- **Inline badges** next to every instructor, colored by rating.
+- **Detail card** on badge click: rating, difficulty, would-retake, top tags,
+  and a link to the RMP page. One card at a time; closes on Escape, outside
+  click, or a second click on the same badge.
+- **Comparison sidebar** ranking every instructor on the results page,
+  best-first. Only appears with two or more instructors, since one has nothing
+  to compare against. Clicking a row scrolls to that badge.
+- **Popup** with a manual professor search, cache stats, and settings
+  (`autoDetect`, `showComparison`, `cacheTTLDays`).
+
+All in-page UI is shadow-DOM encapsulated, so PeopleSoft's stylesheets cannot
+reach in and our styles cannot leak out.
 
 ## Commands
 
@@ -111,6 +127,10 @@ middle`, `em` sizing — but jsdom cannot confirm it).
   Chrome behavior that no test here exercises.
 - Real UAccess ids. The selectors come from the two supplied snippets; live
   PeopleSoft may carry extra instance suffixes.
+- Card and sidebar positioning. `computePosition` is unit-tested arithmetic, but
+  jsdom reports every `getBoundingClientRect()` as zero, so the real placement
+  has never been observed.
+- Whether the 300px sidebar crowds the UAccess results at common window widths.
 
 ## Known gaps
 
@@ -122,5 +142,10 @@ middle`, `em` sizing — but jsdom cannot confirm it).
   `npm run typecheck` covers the ground in the meantime. See
   [eslint.config.js](eslint.config.js).
 - **Icons are placeholders** — flat cardinal-red squares.
+- **Tailwind is installed but unused.** The popup uses hand-written CSS
+  ([styles.css](src/popup/styles.css)); the plugin stays in the build but emits
+  nothing without an `@import "tailwindcss"`.
+- **The sidebar does not persist a manual close.** Dismissing it lasts until the
+  next search re-renders the results.
 - A deprecation warning from `@crxjs/vite-plugin` about `server.hmr.*` appears
   during builds. It originates inside the plugin, not this config.

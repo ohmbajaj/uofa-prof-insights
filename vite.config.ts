@@ -10,6 +10,10 @@ const srcPath = (dir: string) => fileURLToPath(new URL(`./src/${dir}`, import.me
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), crx({ manifest: manifest as ManifestV3Export })],
+  define: {
+    // Single source of truth for the version shown in the popup.
+    __APP_VERSION__: JSON.stringify(manifest.version),
+  },
   resolve: {
     alias: {
       '@shared': srcPath('shared'),

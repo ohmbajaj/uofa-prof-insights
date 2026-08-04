@@ -169,4 +169,39 @@ describe('handleMessage', () => {
     const reply = await handleMessage({ type: 'NOPE' } as never);
     expect(reply.type).toBe('ERROR');
   });
+
+  it('answers GET_SETTINGS with the defaults when nothing is stored', async () => {
+    const reply = await handleMessage({ type: 'GET_SETTINGS' });
+
+    expect(reply.type).toBe('SETTINGS');
+    expect(reply).toMatchObject({ settings: cache.DEFAULT_SETTINGS });
+  });
+
+  it('answers SAVE_SETTINGS with the merged result', async () => {
+    const reply = await handleMessage({
+      type: 'SAVE_SETTINGS',
+      settings: { showComparison: false },
+    });
+
+    expect(reply).toMatchObject({
+      type: 'SETTINGS',
+      settings: { showComparison: false, autoDetect: true },
+    });
+  });
+
+  it('persists a saved setting for the next GET_SETTINGS', async () => {
+    await handleMessage({ type: 'SAVE_SETTINGS', settings: { autoDetect: false } });
+    const reply = await handleMessage({ type: 'GET_SETTINGS' });
+
+    expect(reply).toMatchObject({ settings: { autoDetect: false } });
+  });
+
+  it('clamps an out-of-range TTL on save', async () => {
+    const reply = await handleMessage({
+      type: 'SAVE_SETTINGS',
+      settings: { cacheTTLDays: 9999 },
+    });
+
+    expect(reply).toMatchObject({ settings: { cacheTTLDays: 90 } });
+  });
 });

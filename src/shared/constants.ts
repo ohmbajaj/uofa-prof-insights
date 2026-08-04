@@ -27,6 +27,20 @@ export const MAX_CONCURRENT_REQUESTS = 5;
 export const CACHE_STORAGE_KEY = 'upi_professor_cache';
 export const SETTINGS_STORAGE_KEY = 'upi_settings';
 
+/** Lives here rather than in background/ so content and popup can read it too. */
+export const DEFAULT_SETTINGS = {
+  autoDetect: true,
+  showComparison: true,
+  cacheTTLDays: DEFAULT_CACHE_TTL_DAYS,
+} as const;
+
+/** Bounds for the cacheTTLDays setting, enforced in the popup and on save. */
+export const MIN_CACHE_TTL_DAYS = 1;
+export const MAX_CACHE_TTL_DAYS = 90;
+
+/** Minimum number of instructors before the comparison sidebar is worth showing. */
+export const MIN_COMPARISON_ROWS = 2;
+
 /** RMP sentinel meaning "not enough data" for wouldTakeAgainPercent. */
 export const RMP_NO_DATA_SENTINEL = -1;
 

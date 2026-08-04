@@ -153,4 +153,24 @@ describe('settings', () => {
     expect(saved.cacheTTLDays).toBe(cache.DEFAULT_SETTINGS.cacheTTLDays);
     await expect(cache.getSettings()).resolves.toEqual(saved);
   });
+
+  it.each([
+    [0, 1],
+    [-5, 1],
+    [1000, 90],
+    [7.6, 8],
+  ])('clamps a cacheTTLDays of %s to %s', async (input, expected) => {
+    const saved = await cache.saveSettings({ cacheTTLDays: input });
+    expect(saved.cacheTTLDays).toBe(expected);
+  });
+
+  it('falls back to the default for a non-numeric TTL', async () => {
+    const saved = await cache.saveSettings({ cacheTTLDays: Number.NaN });
+    expect(saved.cacheTTLDays).toBe(cache.DEFAULT_SETTINGS.cacheTTLDays);
+  });
+
+  it('clamps a TTL that was written directly to storage', async () => {
+    await chrome.storage.local.set({ [SETTINGS_STORAGE_KEY]: { cacheTTLDays: 9999 } });
+    await expect(cache.getSettings()).resolves.toMatchObject({ cacheTTLDays: 90 });
+  });
 });

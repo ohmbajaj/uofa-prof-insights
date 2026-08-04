@@ -1,4 +1,124 @@
-/** TODO(Phase 1): bind ExtensionSettings (autoDetect, showComparison, cacheTTLDays). */
+import { useCallback, useEffect, useState } from 'react';
+import { MAX_CACHE_TTL_DAYS, MIN_CACHE_TTL_DAYS } from '@shared/constants';
+import { sendMessage } from '@shared/messaging';
+import type { ExtensionSettings } from '@shared/types';
+
 export default function Settings() {
-  return <section>Settings</section>;
+  const [settings, setSettings] = useState<ExtensionSettings | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const reply = await sendMessage({ type: 'GET_SETTINGS' }, 'SETTINGS');
+        setSettings(reply.settings);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    })();
+  }, []);
+
+  const save = useCallback(async (patch: Partial<ExtensionSettings>) => {
+    // Optimistic: the toggle should feel instant, and a failure re-renders
+    // from the authoritative reply anyway.
+    setSettings((current) => (current ? { ...current, ...patch } : current));
+    try {
+      const reply = await sendMessage({ type: 'SAVE_SETTINGS', settings: patch }, 'SETTINGS');
+      setSettings(reply.settings);
+      setError(null);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, []);
+
+  if (error && !settings) {
+    return (
+      <div className="page">
+        <p className="notice notice--error">{error}</p>
+      </div>
+    );
+  }
+
+  if (!settings) {
+    return (
+      <div className="page">
+        <p className="notice">Loading settings…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="page">
+      <div className="field">
+        <input
+          id="autoDetect"
+          type="checkbox"
+          checked={settings.autoDetect}
+          onChange={(e) => void save({ autoDetect: e.target.checked })}
+        />
+        <div className="field__text">
+          <label className="field__label" htmlFor="autoDetect">
+            Show ratings automatically
+          </label>
+          <div className="field__hint">
+            Adds a rating badge next to every instructor in class search. Turn off to leave UAccess
+            untouched and use the search box instead.
+          </div>
+        </div>
+      </div>
+
+      <div className="field">
+        <input
+          id="showComparison"
+          type="checkbox"
+          checked={settings.showComparison}
+          onChange={(e) => void save({ showComparison: e.target.checked })}
+        />
+        <div className="field__text">
+          <label className="field__label" htmlFor="showComparison">
+            Show comparison sidebar
+          </label>
+          <div className="field__hint">
+            Ranks every instructor on the results page, best rating first. Appears only when a
+            search returns two or more instructors.
+          </div>
+        </div>
+      </div>
+
+      <div className="field">
+        <div className="field__text">
+          <label className="field__label" htmlFor="cacheTTLDays">
+            Keep ratings for
+          </label>
+          <div className="field__hint">
+            How long a professor stays cached before being fetched again.
+          </div>
+        </div>
+        <div>
+          <input
+            id="cacheTTLDays"
+            type="number"
+            className="searchbar__input"
+            style={{ width: 68 }}
+            min={MIN_CACHE_TTL_DAYS}
+            max={MAX_CACHE_TTL_DAYS}
+            value={settings.cacheTTLDays}
+            onChange={(e) => {
+              const days = Number(e.target.value);
+              if (Number.isFinite(days)) void save({ cacheTTLDays: days });
+            }}
+          />{' '}
+          days
+        </div>
+      </div>
+
+      {error && <p className="notice notice--error">{error}</p>}
+      <p className="notice" hidden={!saved} role="status">
+        Saved
+      </p>
+    </div>
+  );
 }

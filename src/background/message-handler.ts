@@ -99,6 +99,12 @@ export async function handleMessage(message: OutgoingMessage): Promise<IncomingM
       case 'GET_CACHE_STATS':
         return { type: 'CACHE_STATS', stats: await cache.getStats() };
 
+      case 'GET_SETTINGS':
+        return { type: 'SETTINGS', settings: await cache.getSettings() };
+
+      case 'SAVE_SETTINGS':
+        return { type: 'SETTINGS', settings: await cache.saveSettings(message.settings) };
+
       case 'CLEAR_CACHE':
         await cache.clear();
         inFlight.clear();

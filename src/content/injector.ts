@@ -1,5 +1,6 @@
 import { BADGE_CLICK_EVENT, BADGE_TAG, UPIBadge, defineBadge } from './components/Badge';
 import type { BadgeData } from './components/Badge';
+import { closeCard, closeCardIfOrphaned, openCardFor } from './card-controller';
 import type { DetectedProfessor } from './detector';
 
 /**
@@ -53,6 +54,12 @@ export function injectBadges(profs: DetectedProfessor[]): InjectedBadge[] {
     badge.addEventListener(BADGE_CLICK_EVENT, (event) => {
       const detail = (event as CustomEvent<BadgeData>).detail;
       console.info(`[UPI] badge clicked for ${name}:`, detail);
+
+      // Only a resolved professor has anything to show. Loading, error and
+      // "no match" states stay as the badge alone.
+      if (detail && detail !== 'loading' && detail !== 'error') {
+        openCardFor(badge, detail);
+      }
     });
 
     // Appended INSIDE the cell rather than after it. The classic detector
@@ -84,6 +91,7 @@ export function removeBadges(profs: DetectedProfessor[]): void {
   }
 
   if (removed > 0) {
+    closeCard();
     console.info(`[UPI] Removed ${removed} badges`);
   }
 }
@@ -106,6 +114,7 @@ export function pruneDetached(): number {
   }
 
   if (removed > 0) {
+    closeCardIfOrphaned();
     console.info(`[UPI] Removed ${removed} badges`);
   }
   return removed;

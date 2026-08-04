@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IncomingMessage, OutgoingMessage } from '@shared/messages';
-import type { ProfessorData } from '@shared/types';
+import type { ExtensionSettings, ProfessorData } from '@shared/types';
+import { DEFAULT_SETTINGS } from '@shared/constants';
 
 /**
  * End-to-end exercise of the content script against the exact UAccess markup
@@ -86,9 +87,20 @@ function professor(patch: Partial<ProfessorData> = {}): ProfessorData {
   };
 }
 
-/** Installs a chrome.runtime whose sendMessage replies via `reply`. */
-function installRuntime(reply: (m: OutgoingMessage) => Promise<IncomingMessage | undefined>) {
-  const sendMessage = vi.fn(reply);
+/**
+ * Installs a chrome.runtime whose sendMessage replies via `reply`.
+ * GET_SETTINGS is answered with defaults unless `reply` handles it.
+ */
+function installRuntime(
+  reply: (m: OutgoingMessage) => Promise<IncomingMessage | undefined>,
+  settings: Partial<ExtensionSettings> = {},
+) {
+  const sendMessage = vi.fn(async (message: OutgoingMessage) => {
+    if (message.type === 'GET_SETTINGS') {
+      return { type: 'SETTINGS', settings: { ...DEFAULT_SETTINGS, ...settings } };
+    }
+    return reply(message);
+  });
   vi.stubGlobal('chrome', { runtime: { sendMessage } });
   return sendMessage;
 }
@@ -98,7 +110,13 @@ async function loadContentScript(): Promise<void> {
   vi.resetModules();
   const injector = await import('@content/injector');
   injector.resetInjectorState();
+  const cards = await import('@content/card-controller');
+  cards.resetCardState();
+  const sidebar = await import('@content/sidebar-controller');
+  sidebar.resetSidebarState();
   await import('@content/index');
+  // main() is async now (it loads settings first).
+  await flush();
 }
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
@@ -331,6 +349,143 @@ describe('content script — error handling', () => {
     await flush();
 
     expect(document.querySelectorAll('upi-badge')).toHaveLength(0);
-    expect(send).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'LOOKUP_PROFESSOR' }));
+  });
+
+  it('falls back to defaults when settings cannot be loaded', async () => {
+    document.body.innerHTML = CLASSIC_HTML;
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const sendMessage = vi.fn(async (message: OutgoingMessage) => {
+      if (message.type === 'GET_SETTINGS') throw new Error('worker asleep');
+      return { type: 'PROFESSOR_RESULT', name: 'x', data: professor() };
+    });
+    vi.stubGlobal('chrome', { runtime: { sendMessage } });
+
+    await loadContentScript();
+    await flush();
+
+    // autoDetect defaults to true, so badging still happens.
+    expect(document.querySelectorAll('upi-badge')).toHaveLength(1);
+  });
+});
+
+describe('content script — settings', () => {
+  it('does not touch the page when autoDetect is off', async () => {
+    document.body.innerHTML = CLASSIC_HTML;
+    const send = installRuntime(
+      async (m) => ({
+        type: 'PROFESSOR_RESULT',
+        name: (m as { name: string }).name,
+        data: professor(),
+      }),
+      { autoDetect: false },
+    );
+
+    await loadContentScript();
+    await flush();
+
+    expect(document.querySelectorAll('upi-badge')).toHaveLength(0);
+    expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'LOOKUP_PROFESSOR' }));
+  });
+
+  it('shows the comparison sidebar for two or more instructors', async () => {
+    document.body.innerHTML = `
+      <table id="CLASS_SRCH_WRK2_STRM$scroll$0">
+        <tr><th id="CLASS_SRCH_WRK2_STRM_INSTRUCTOR$0">Instructor</th></tr>
+        <tr><td id="MTG_INSTR$0">Mercer, Richard</td></tr>
+        <tr><td id="MTG_INSTR$1">Debray, Saumya</td></tr>
+      </table>`;
+    installRuntime(async (m) => {
+      const { name } = m as { name: string };
+      return { type: 'PROFESSOR_RESULT', name, data: professor({ name }) };
+    });
+
+    await loadContentScript();
+    await flush();
+
+    expect(document.querySelectorAll('upi-sidebar')).toHaveLength(1);
+  });
+
+  it('hides the sidebar for a single instructor', async () => {
+    document.body.innerHTML = CLASSIC_HTML;
+    installRuntime(async (m) => ({
+      type: 'PROFESSOR_RESULT',
+      name: (m as { name: string }).name,
+      data: professor(),
+    }));
+
+    await loadContentScript();
+    await flush();
+
+    expect(document.querySelectorAll('upi-sidebar')).toHaveLength(0);
+  });
+
+  it('hides the sidebar when showComparison is off', async () => {
+    document.body.innerHTML = `
+      <table id="CLASS_SRCH_WRK2_STRM$scroll$0">
+        <tr><th id="CLASS_SRCH_WRK2_STRM_INSTRUCTOR$0">Instructor</th></tr>
+        <tr><td id="MTG_INSTR$0">Mercer, Richard</td></tr>
+        <tr><td id="MTG_INSTR$1">Debray, Saumya</td></tr>
+      </table>`;
+    installRuntime(
+      async (m) => {
+        const { name } = m as { name: string };
+        return { type: 'PROFESSOR_RESULT', name, data: professor({ name }) };
+      },
+      { showComparison: false },
+    );
+
+    await loadContentScript();
+    await flush();
+
+    expect(document.querySelectorAll('upi-sidebar')).toHaveLength(0);
+  });
+});
+
+describe('content script — detail card', () => {
+  it('opens a card when a resolved badge is clicked', async () => {
+    document.body.innerHTML = CLASSIC_HTML;
+    installRuntime(async (m) => ({
+      type: 'PROFESSOR_RESULT',
+      name: (m as { name: string }).name,
+      data: professor({ name: 'Richard Mercer' }),
+    }));
+
+    await loadContentScript();
+    await flush();
+
+    (document.querySelector('upi-badge') as HTMLElement).click();
+
+    const card = document.querySelector('upi-card');
+    expect(card).not.toBeNull();
+    expect(card?.shadowRoot?.querySelector('.card')?.textContent).toContain('Richard Mercer');
+  });
+
+  it('does not open a card for an errored badge', async () => {
+    document.body.innerHTML = CLASSIC_HTML;
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    installRuntime(async () => ({ type: 'ERROR', message: 'down' }));
+
+    await loadContentScript();
+    await flush();
+
+    (document.querySelector('upi-badge') as HTMLElement).click();
+    expect(document.querySelectorAll('upi-card')).toHaveLength(0);
+  });
+
+  it('does not open a card when RMP had no match', async () => {
+    document.body.innerHTML = CLASSIC_HTML;
+    installRuntime(async (m) => ({
+      type: 'PROFESSOR_RESULT',
+      name: (m as { name: string }).name,
+      data: null,
+    }));
+
+    await loadContentScript();
+    await flush();
+
+    (document.querySelector('upi-badge') as HTMLElement).click();
+    expect(document.querySelectorAll('upi-card')).toHaveLength(0);
   });
 });

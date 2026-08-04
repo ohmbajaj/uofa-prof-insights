@@ -1,7 +1,9 @@
 import {
   CACHE_STORAGE_KEY,
-  DEFAULT_CACHE_TTL_DAYS,
+  DEFAULT_SETTINGS as DEFAULTS,
   MAX_CACHE_ENTRIES,
+  MAX_CACHE_TTL_DAYS,
+  MIN_CACHE_TTL_DAYS,
   SETTINGS_STORAGE_KEY,
 } from '@shared/constants';
 import type { CacheEntry, ExtensionSettings, ProfessorData } from '@shared/types';
@@ -19,11 +21,13 @@ type CacheMap = Record<string, CacheEntry>;
 
 const MS_PER_DAY = 86_400_000;
 
-export const DEFAULT_SETTINGS: ExtensionSettings = {
-  autoDetect: true,
-  showComparison: true,
-  cacheTTLDays: DEFAULT_CACHE_TTL_DAYS,
-};
+export const DEFAULT_SETTINGS: ExtensionSettings = { ...DEFAULTS };
+
+/** Keeps a hand-edited or out-of-range TTL from disabling or ossifying the cache. */
+function clampTTL(days: number): number {
+  if (!Number.isFinite(days)) return DEFAULTS.cacheTTLDays;
+  return Math.min(MAX_CACHE_TTL_DAYS, Math.max(MIN_CACHE_TTL_DAYS, Math.round(days)));
+}
 
 async function readMap(): Promise<CacheMap> {
   const stored = await chrome.storage.local.get(CACHE_STORAGE_KEY);
@@ -57,11 +61,13 @@ function prune(map: CacheMap, now: number): CacheMap {
 export async function getSettings(): Promise<ExtensionSettings> {
   const stored = await chrome.storage.local.get(SETTINGS_STORAGE_KEY);
   const raw = stored[SETTINGS_STORAGE_KEY] as Partial<ExtensionSettings> | undefined;
-  return { ...DEFAULT_SETTINGS, ...(raw ?? {}) };
+  const merged = { ...DEFAULT_SETTINGS, ...(raw ?? {}) };
+  return { ...merged, cacheTTLDays: clampTTL(merged.cacheTTLDays) };
 }
 
 export async function saveSettings(patch: Partial<ExtensionSettings>): Promise<ExtensionSettings> {
   const next = { ...(await getSettings()), ...patch };
+  next.cacheTTLDays = clampTTL(next.cacheTTLDays);
   await chrome.storage.local.set({ [SETTINGS_STORAGE_KEY]: next });
   return next;
 }
