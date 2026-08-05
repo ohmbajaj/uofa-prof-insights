@@ -18,7 +18,8 @@
     "test:watch": "vitest",
     "test:live": "vitest run --mode live tests/live",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "store:assets": "npm run build && node scripts/store-assets.mjs"
   },
   "keywords": [
     "chrome-extension",
