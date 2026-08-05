@@ -12,7 +12,13 @@ things a browser tab open on RateMyProfessors structurally cannot do: rank every
 instructor on the page against each other, break a rating down by course, and
 hide sections below a threshold.
 
-[Install](INSTALL.md) · [Privacy](PRIVACY.md) · 371 tests · verified in headless Chrome
+[Install](INSTALL.md) · [Privacy](PRIVACY.md) · 461 tests · verified as a side-loaded extension
+
+> **Distributed by zip, not through the Chrome Web Store.** The extension reads
+> RateMyProfessors through a private API and carries the university's name, so a
+> public listing under an individual's name is not a trade worth making for an
+> audience of classmates. [STORE.md](STORE.md) keeps the prepared listing and the
+> reasoning.
 
 ![Rating badges, detail card and comparison sidebar in UAccess class search](docs/screenshots/uaccess.png)
 

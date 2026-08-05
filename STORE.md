@@ -1,5 +1,16 @@
 # Chrome Web Store submission
 
+> **Decision (August 2026): not publishing.**
+>
+> The extension reads RateMyProfessors through a private API using their own
+> web client's credential, and carries the University of Arizona's name and
+> palette. A public listing puts a named individual behind both of those, adds
+> Google's policy surface on top, and requires a hosted privacy policy. None of
+> that is worth it for a project whose audience is a few dozen classmates.
+>
+> Nothing here is wasted — the listing copy, assets and checklist stay ready if
+> the calculus changes. Distribution is by zip instead; see INSTALL.md.
+
 Everything needed for a listing, plus the parts that need a decision rather
 than a copy-paste.
 
