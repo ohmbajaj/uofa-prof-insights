@@ -193,6 +193,9 @@ export class UPIFilterBar extends HTMLElement {
 }
 
 export function defineFilterBar(win: Window & typeof globalThis = window): void {
+  // `customElements` is null inside a content script's isolated world.
+  // Registering is impossible there; throwing would kill the whole script.
+  if (!win.customElements) return;
   if (!win.customElements.get(FILTER_TAG)) {
     win.customElements.define(FILTER_TAG, UPIFilterBar);
   }

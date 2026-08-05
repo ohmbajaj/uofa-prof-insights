@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IncomingMessage, OutgoingMessage } from '@shared/messages';
 import type { ExtensionSettings, ProfessorData } from '@shared/types';
 import { DEFAULT_SETTINGS } from '@shared/constants';
+import type { UPIBadge } from '@content/components/Badge';
 
 const EMPTY_USAGE = {
   lookups: 0,
@@ -131,6 +132,16 @@ function installRuntime(
 }
 
 /** Loads the content script fresh so its top-level `main()` runs against the current DOM. */
+/**
+ * The Badge module the content script under test is actually using.
+ *
+ * `vi.resetModules()` hands the freshly imported content script a new module
+ * graph, so the badge registry it populates is not the one a static import in
+ * this file would see. Capturing the instance keeps lookups pointed at the
+ * right registry.
+ */
+let badgeModule: typeof import('@content/components/Badge');
+
 async function loadContentScript(): Promise<void> {
   vi.resetModules();
   const injector = await import('@content/injector');
@@ -139,9 +150,27 @@ async function loadContentScript(): Promise<void> {
   cards.resetCardState();
   const sidebar = await import('@content/sidebar-controller');
   sidebar.resetSidebarState();
+  badgeModule = await import('@content/components/Badge');
   await import('@content/index');
   // main() is async now (it loads settings first).
   await flush();
+}
+
+/**
+ * The badge wrapper for a host element.
+ *
+ * Badges are plain elements with a shadow root, not custom elements, so state
+ * such as `data` lives on the wrapper rather than on the node itself.
+ */
+function badgeAt(selector = 'upi-badge'): UPIBadge {
+  const found = badgeModule.badgeFromElement(document.querySelector(selector));
+  if (!found) throw new Error(`no badge for selector ${selector}`);
+  return found;
+}
+
+/** Every badge on the page, as wrappers. */
+function allBadges(): UPIBadge[] {
+  return badgeModule.badgesIn(document);
 }
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
@@ -174,9 +203,7 @@ describe('content script — classic UAccess', () => {
     await loadContentScript();
     await flush();
 
-    const badge = document.querySelector('#MTG_INSTR\\$0 upi-badge') as HTMLElement & {
-      data: unknown;
-    };
+    const badge = badgeAt('#MTG_INSTR\\$0 upi-badge');
     expect(badge).not.toBeNull();
     expect(send).toHaveBeenCalledWith({ type: 'LOOKUP_PROFESSOR', name: 'Richard Mercer' });
     expect(badge.shadowRoot?.textContent).toContain('2.9');
@@ -204,7 +231,7 @@ describe('content script — classic UAccess', () => {
 
     await loadContentScript();
 
-    const badge = document.querySelector('upi-badge') as HTMLElement & { data: unknown };
+    const badge = badgeAt();
     expect(badge.data).toBe('loading');
     expect(badge.shadowRoot?.querySelector('.badge')?.classList.contains('is-loading')).toBe(true);
   });
@@ -222,7 +249,7 @@ describe('content script — new Student Center', () => {
     await loadContentScript();
     await flush();
 
-    const badge = document.querySelector('.instructor upi-badge') as HTMLElement;
+    const badge = badgeAt('.instructor upi-badge');
     expect(badge).not.toBeNull();
     expect(send).toHaveBeenCalledWith({ type: 'LOOKUP_PROFESSOR', name: 'Richard Mercer' });
     expect(badge.shadowRoot?.textContent).toContain('2.9');
@@ -292,7 +319,7 @@ describe('content script — error handling', () => {
     await loadContentScript();
     await flush();
 
-    const badge = document.querySelector('upi-badge') as HTMLElement & { data: unknown };
+    const badge = badgeAt();
     expect(badge.data).toBe('error');
     expect(badge.shadowRoot?.textContent).toContain('?');
     expect(errorSpy).toHaveBeenCalled();
@@ -308,9 +335,7 @@ describe('content script — error handling', () => {
     await loadContentScript();
     await flush();
 
-    expect((document.querySelector('upi-badge') as HTMLElement & { data: unknown }).data).toBe(
-      'error',
-    );
+    expect(badgeAt().data).toBe('error');
   });
 
   it('shows the error state when the service worker never replies', async () => {
@@ -321,9 +346,7 @@ describe('content script — error handling', () => {
     await loadContentScript();
     await flush();
 
-    expect((document.querySelector('upi-badge') as HTMLElement & { data: unknown }).data).toBe(
-      'error',
-    );
+    expect(badgeAt().data).toBe('error');
   });
 
   it('shows N/A when RMP has no match, without erroring', async () => {
@@ -337,7 +360,7 @@ describe('content script — error handling', () => {
     await loadContentScript();
     await flush();
 
-    const badge = document.querySelector('upi-badge') as HTMLElement;
+    const badge = badgeAt();
     expect(badge.shadowRoot?.textContent).toContain('N/A');
   });
 
@@ -359,9 +382,7 @@ describe('content script — error handling', () => {
     await loadContentScript();
     await flush();
 
-    const badges = [...document.querySelectorAll('upi-badge')] as (HTMLElement & {
-      data: unknown;
-    })[];
+    const badges = allBadges();
     expect(badges[0]?.data).toBe('error');
     expect(badges[1]?.data).not.toBe('error');
   });
@@ -489,7 +510,7 @@ describe('content script — retry and refresh', () => {
     await loadContentScript();
     await flush();
 
-    const badge = document.querySelector('upi-badge') as HTMLElement & { data: unknown };
+    const badge = badgeAt();
     expect(badge.data).toBe('error');
 
     badge.click();
@@ -518,7 +539,7 @@ describe('content script — retry and refresh', () => {
     await loadContentScript();
     await flush();
 
-    const badge = document.querySelector('upi-badge') as HTMLElement & { data: unknown };
+    const badge = badgeAt();
     badge.click();
 
     expect(badge.data).toBe('loading');
@@ -532,7 +553,7 @@ describe('content script — retry and refresh', () => {
     await loadContentScript();
     await flush();
 
-    const badge = document.querySelector('upi-badge') as HTMLElement & { data: unknown };
+    const badge = badgeAt();
     badge.click();
     await flush();
 
@@ -551,7 +572,7 @@ describe('content script — retry and refresh', () => {
     await flush();
     send.mockClear();
 
-    (document.querySelector('upi-badge') as HTMLElement).click();
+    badgeAt().click();
     await flush();
 
     expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'REFRESH_PROFESSOR' }));
@@ -572,7 +593,7 @@ describe('content script — retry and refresh', () => {
     await loadContentScript();
     await flush();
 
-    const badge = document.querySelector('upi-badge') as HTMLElement;
+    const badge = badgeAt();
     badge.click();
     const card = document.querySelector('upi-card') as HTMLElement;
     expect(card.shadowRoot?.textContent).toContain('2.9');
@@ -600,7 +621,7 @@ describe('content script — retry and refresh', () => {
     await loadContentScript();
     await flush();
 
-    (document.querySelector('upi-badge') as HTMLElement).click();
+    badgeAt().click();
     const card = document.querySelector('upi-card') as HTMLElement;
     (card.shadowRoot?.querySelector('.refresh') as HTMLButtonElement).click();
     await flush();
@@ -615,12 +636,16 @@ describe('content script — retry and refresh', () => {
 
     await loadContentScript();
     await flush();
-    // Chrome re-injecting the content script into the same page.
+    // Chrome re-injecting the content script into the same page. Each load gets
+    // its own module graph, so badges from the first are strangers to the
+    // second — click one the current instance actually owns.
     await loadContentScript();
     await flush();
     send.mockClear();
 
-    (document.querySelector('upi-badge') as HTMLElement).click();
+    const live = allBadges();
+    expect(live.length).toBeGreaterThan(0);
+    live[0]!.click();
     await flush();
 
     const retries = send.mock.calls.filter(
@@ -642,7 +667,7 @@ describe('content script — detail card', () => {
     await loadContentScript();
     await flush();
 
-    (document.querySelector('upi-badge') as HTMLElement).click();
+    badgeAt().click();
 
     const card = document.querySelector('upi-card');
     expect(card).not.toBeNull();
@@ -657,7 +682,7 @@ describe('content script — detail card', () => {
     await loadContentScript();
     await flush();
 
-    (document.querySelector('upi-badge') as HTMLElement).click();
+    badgeAt().click();
     expect(document.querySelectorAll('upi-card')).toHaveLength(0);
   });
 
@@ -672,7 +697,7 @@ describe('content script — detail card', () => {
     await loadContentScript();
     await flush();
 
-    (document.querySelector('upi-badge') as HTMLElement).click();
+    badgeAt().click();
     expect(document.querySelectorAll('upi-card')).toHaveLength(0);
   });
 });

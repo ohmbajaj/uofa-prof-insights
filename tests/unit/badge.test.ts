@@ -4,8 +4,8 @@ import { COLOR_BAD, COLOR_GOOD, COLOR_OK, COLOR_UNKNOWN } from '@shared/constant
 import { makeProfessor } from '../helpers/chrome-mock';
 
 function mount(): UPIBadge {
-  const badge = document.createElement(BADGE_TAG) as UPIBadge;
-  document.body.appendChild(badge);
+  const badge = new UPIBadge(document);
+  document.body.appendChild(badge.el);
   return badge;
 }
 
@@ -22,9 +22,29 @@ beforeEach(() => {
   document.body.innerHTML = '';
 });
 
-describe('UPIBadge registration', () => {
-  it('is registered as a custom element', () => {
-    expect(customElements.get(BADGE_TAG)).toBe(UPIBadge);
+describe('UPIBadge construction', () => {
+  /**
+   * Deliberately not a custom element: `customElements` is null in a content
+   * script's isolated world, so registering there throws and kills the whole
+   * script. The host is a plain element with a shadow root.
+   */
+  it('is not registered as a custom element', () => {
+    expect(customElements.get(BADGE_TAG)).toBeUndefined();
+  });
+
+  it('creates a host element with the expected tag', () => {
+    expect(mount().el.tagName.toLowerCase()).toBe(BADGE_TAG);
+  });
+
+  it('does not depend on the custom element registry', () => {
+    const registry = window.customElements;
+    // Stand in for an isolated world, where the registry is absent entirely.
+    Object.defineProperty(window, 'customElements', { value: null, configurable: true });
+    try {
+      expect(() => new UPIBadge(document)).not.toThrow();
+    } finally {
+      Object.defineProperty(window, 'customElements', { value: registry, configurable: true });
+    }
   });
 
   it('attaches an open shadow root', () => {
@@ -214,8 +234,8 @@ describe('UPIBadge click events', () => {
   it('bubbles out of the shadow root so ancestors can listen', () => {
     const host = document.createElement('div');
     document.body.appendChild(host);
-    const badge = document.createElement(BADGE_TAG) as UPIBadge;
-    host.appendChild(badge);
+    const badge = new UPIBadge(document);
+    host.appendChild(badge.el);
 
     let seen = false;
     document.body.addEventListener(BADGE_CLICK_EVENT, () => {
@@ -233,7 +253,7 @@ describe('UPIBadge click events', () => {
       count += 1;
     });
 
-    badge.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    badge.el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     expect(count).toBe(1);
   });
 
@@ -244,7 +264,7 @@ describe('UPIBadge click events', () => {
       count += 1;
     });
 
-    badge.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+    badge.el.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
     expect(count).toBe(0);
   });
 });

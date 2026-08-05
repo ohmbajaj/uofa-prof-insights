@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { BADGE_CLICK_EVENT, BADGE_TAG } from '@content/components/Badge';
+import { BADGE_CLICK_EVENT, BADGE_TAG, badgesIn as badgesInRoot } from '@content/components/Badge';
 import type { UPIBadge } from '@content/components/Badge';
 import {
   injectBadges,
@@ -19,7 +19,7 @@ const CLASSIC = `
   </table>`;
 
 function badgesIn(root: ParentNode = document): UPIBadge[] {
-  return [...root.querySelectorAll<UPIBadge>(BADGE_TAG)];
+  return badgesInRoot(root);
 }
 
 beforeEach(() => {

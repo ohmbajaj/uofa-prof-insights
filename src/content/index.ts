@@ -9,7 +9,7 @@ import { syncSidebar } from './sidebar-controller';
 import { syncFilterBar } from './filter-controller';
 import { CARD_REFRESH_EVENT } from './components/PopupCard';
 import { collectDiagnostics } from './diagnostics';
-import { BADGE_CLICK_EVENT, BADGE_TAG } from './components/Badge';
+import { BADGE_CLICK_EVENT, badgeFromElement, badgesIn } from './components/Badge';
 import type { BadgeData, UPIBadge } from './components/Badge';
 import type { ComparisonRow } from './components/ComparisonSidebar';
 
@@ -60,7 +60,7 @@ function refreshRanks(): void {
   const total = rated.length;
   const positions = new Map(rated.map((entry, index) => [entry.name, index + 1]));
 
-  for (const badge of document.querySelectorAll<UPIBadge>(BADGE_TAG)) {
+  for (const badge of badgesIn(document)) {
     const name = badge.dataset.upiName;
     const rank = name ? positions.get(name) : undefined;
     badge.rank = rank === undefined ? null : { rank, total };
@@ -136,7 +136,7 @@ async function resolveBadge(badge: UPIBadge, name: string, refresh = false): Pro
  * apostrophes ("Sean O'Brien"), and this sidesteps selector escaping entirely.
  */
 function badgeFor(name: string): UPIBadge | null {
-  for (const badge of document.querySelectorAll<UPIBadge>(BADGE_TAG)) {
+  for (const badge of badgesIn(document)) {
     if (badge.dataset.upiName === name) return badge;
   }
   return null;
@@ -162,7 +162,7 @@ function onBadgeClick(event: Event): void {
 
   if (detail !== 'error') return;
 
-  const badge = event.target as UPIBadge | null;
+  const badge = badgeFromElement(event.target as Element | null);
   const name = badge?.dataset.upiName;
   if (badge && name) void resolveBadge(badge, name, true);
 }

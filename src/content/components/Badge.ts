@@ -108,23 +108,34 @@ const STYLES = `
   }
 `;
 
-export class UPIBadge extends HTMLElement {
+/**
+ * A rating pill, as a plain element with a shadow root.
+ *
+ * Deliberately NOT a custom element. `window.customElements` is `null` inside a
+ * content script's isolated world, so `customElements.define` throws there —
+ * and because these components registered themselves at module scope, that
+ * single throw killed the entire content script before it did anything. Every
+ * jsdom test and the module-loading harness passed regardless, because both run
+ * in a normal page context where the registry exists.
+ *
+ * `attachShadow` is an ordinary DOM method and works fine in an isolated world,
+ * so the encapsulation is unchanged. The host keeps the `upi-badge` tag name —
+ * unknown tags are legal — so selectors and styling still read naturally.
+ */
+export class UPIBadge {
   static readonly styles = STYLES;
+
+  /** The element to insert into the page. */
+  readonly el: HTMLElement;
 
   #shadow: ShadowRoot;
   #badge: HTMLSpanElement;
   #data: BadgeData = 'loading';
   #rank: RankContext | null = null;
 
-  constructor() {
-    super();
-
-    // Custom element constructors may populate a shadow root, but must not set
-    // attributes or light-DOM children on the host — that throws when the
-    // element is upgraded from parsed markup. Attributes are set in
-    // connectedCallback instead.
-    const doc = this.ownerDocument;
-    this.#shadow = this.attachShadow({ mode: 'open' });
+  constructor(doc: Document = document) {
+    this.el = doc.createElement(BADGE_TAG);
+    this.#shadow = this.el.attachShadow({ mode: 'open' });
 
     const style = doc.createElement('style');
     style.textContent = UPIBadge.styles;
@@ -134,23 +145,48 @@ export class UPIBadge extends HTMLElement {
 
     this.#shadow.append(style, this.#badge);
 
-    this.addEventListener('click', this.#emitClick);
-    this.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
+    this.el.setAttribute('role', 'button');
+    this.el.setAttribute('tabindex', '0');
+
+    this.el.addEventListener('click', this.#emitClick);
+    this.el.addEventListener('keydown', (event) => {
+      if ((event as KeyboardEvent).key === 'Enter' || (event as KeyboardEvent).key === ' ') {
         event.preventDefault();
         this.#emitClick();
       }
     });
-  }
 
-  connectedCallback(): void {
-    if (!this.hasAttribute('role')) this.setAttribute('role', 'button');
-    if (!this.hasAttribute('tabindex')) this.setAttribute('tabindex', '0');
+    REGISTRY.set(this.el, this);
     this.#render();
   }
 
+  /** Mirrors `element.dataset` so callers can tag the host. */
+  get dataset(): DOMStringMap {
+    return this.el.dataset;
+  }
+
+  remove(): void {
+    this.el.remove();
+  }
+
+  get isConnected(): boolean {
+    return this.el.isConnected;
+  }
+
+  click(): void {
+    this.el.click();
+  }
+
+  addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
+    this.el.addEventListener(type, listener);
+  }
+
+  get shadowRoot(): ShadowRoot {
+    return this.#shadow;
+  }
+
   #emitClick = (): void => {
-    this.dispatchEvent(
+    this.el.dispatchEvent(
       new CustomEvent<BadgeData>(BADGE_CLICK_EVENT, {
         detail: this.#data,
         bubbles: true,
@@ -180,7 +216,7 @@ export class UPIBadge extends HTMLElement {
   }
 
   #render(): void {
-    const doc = this.ownerDocument;
+    const doc = this.el.ownerDocument;
     const data = this.#data;
     this.#badge.classList.toggle('is-loading', data === 'loading');
 
@@ -247,23 +283,43 @@ export class UPIBadge extends HTMLElement {
 
   /** Applies the hover tooltip, background color and screen-reader label. */
   #apply(tooltip: string, color: string, ariaLabel: string): void {
-    this.title = tooltip;
-    this.style.setProperty('--upi-bg', color);
-    this.setAttribute('aria-label', ariaLabel);
+    this.el.title = tooltip;
+    this.el.style.setProperty('--upi-bg', color);
+    this.el.setAttribute('aria-label', ariaLabel);
+  }
+
+  /** Convenience for tests and callers holding only the host element. */
+  get title(): string {
+    return this.el.title;
+  }
+
+  get style(): CSSStyleDeclaration {
+    return this.el.style;
+  }
+
+  getAttribute(name: string): string | null {
+    return this.el.getAttribute(name);
   }
 }
 
 /**
- * Registers the element on `win`, tolerating a repeat call.
+ * Host element -> badge, so code holding only a DOM node can reach its state.
  *
- * Chrome can inject a content script more than once (bfcache restores, some
- * SPA navigations), and a second bare `define()` throws. Registration is also
- * per-window, so an iframe needs its own call — hence the parameter.
+ * A custom element would have carried its own properties; a plain element
+ * cannot, so the association lives here. Weak, so a badge removed from the
+ * page is collectable.
  */
-export function defineBadge(win: Window & typeof globalThis = window): void {
-  if (!win.customElements.get(BADGE_TAG)) {
-    win.customElements.define(BADGE_TAG, UPIBadge);
-  }
+const REGISTRY = new WeakMap<HTMLElement, UPIBadge>();
+
+/** The badge that owns `element`, if it is one of ours. */
+export function badgeFromElement(element: Element | null | undefined): UPIBadge | null {
+  if (!element) return null;
+  return REGISTRY.get(element as HTMLElement) ?? null;
 }
 
-defineBadge();
+/** Every badge currently in `root`, in document order. */
+export function badgesIn(root: ParentNode): UPIBadge[] {
+  return [...root.querySelectorAll<HTMLElement>(BADGE_TAG)]
+    .map((el) => REGISTRY.get(el))
+    .filter((b): b is UPIBadge => b !== undefined);
+}

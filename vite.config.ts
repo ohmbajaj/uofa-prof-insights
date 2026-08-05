@@ -13,6 +13,17 @@ export default defineConfig({
     // Single source of truth for the version shown in the popup.
     __APP_VERSION__: JSON.stringify(manifest.version),
   },
+  build: {
+    /*
+     * `UPI_DEBUG=1 npm run build` produces a readable bundle. A minified stack
+     * from inside an extension names functions like `p`, which is useless when
+     * the failure is a module that throws while Chrome is evaluating it.
+     */
+    // `true` keeps Vite's own default minifier; naming esbuild explicitly
+    // breaks on Vite 8, which ships oxc and no longer bundles esbuild.
+    minify: !process.env.UPI_DEBUG,
+    sourcemap: process.env.UPI_DEBUG ? 'inline' : false,
+  },
   resolve: {
     alias: {
       '@shared': srcPath('shared'),

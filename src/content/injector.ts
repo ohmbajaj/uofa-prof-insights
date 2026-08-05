@@ -1,4 +1,4 @@
-import { BADGE_CLICK_EVENT, BADGE_TAG, UPIBadge, defineBadge } from './components/Badge';
+import { BADGE_CLICK_EVENT, UPIBadge } from './components/Badge';
 import type { BadgeData } from './components/Badge';
 import { closeCard, closeCardIfOrphaned, openCardFor } from './card-controller';
 import type { DetectedProfessor } from './detector';
@@ -15,12 +15,6 @@ const injected = new Map<Element, UPIBadge[]>();
 export interface InjectedBadge {
   badge: UPIBadge;
   professor: DetectedProfessor;
-}
-
-/** Ensures `upi-badge` is registered in the window that owns `element`. */
-function ensureDefined(element: Element): void {
-  const win = element.ownerDocument.defaultView;
-  if (win) defineBadge(win as Window & typeof globalThis);
 }
 
 function badgesFor(element: Element): UPIBadge[] {
@@ -45,9 +39,7 @@ export function injectBadges(profs: DetectedProfessor[]): InjectedBadge[] {
     // Already badged for this exact name — a re-detection pass, not new content.
     if (badgesFor(element).some((b) => b.dataset.upiName === name)) continue;
 
-    ensureDefined(element);
-
-    const badge = element.ownerDocument.createElement(BADGE_TAG) as UPIBadge;
+    const badge = new UPIBadge(element.ownerDocument);
     badge.dataset.upiName = name;
     badge.data = 'loading';
 
@@ -58,7 +50,7 @@ export function injectBadges(profs: DetectedProfessor[]): InjectedBadge[] {
       // Only a resolved professor has anything to show. Loading, error and
       // "no match" states stay as the badge alone.
       if (detail && detail !== 'loading' && detail !== 'error') {
-        openCardFor(badge, detail, professor.courseCode ?? null);
+        openCardFor(badge.el, detail, professor.courseCode ?? null);
       }
     });
 
@@ -66,7 +58,7 @@ export function injectBadges(profs: DetectedProfessor[]): InjectedBadge[] {
     // anchors on a <td>, and inserting a sibling there would place a non-cell
     // element directly inside <tr>, which browsers hoist out of the table and
     // which visibly breaks the results grid.
-    element.appendChild(badge);
+    element.appendChild(badge.el);
 
     injected.set(element, [...badgesFor(element), badge]);
     added.push({ badge, professor });

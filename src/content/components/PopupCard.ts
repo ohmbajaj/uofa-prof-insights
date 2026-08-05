@@ -563,6 +563,9 @@ export class UPICard extends HTMLElement {
 }
 
 export function defineCard(win: Window & typeof globalThis = window): void {
+  // `customElements` is null inside a content script's isolated world.
+  // Registering is impossible there; throwing would kill the whole script.
+  if (!win.customElements) return;
   if (!win.customElements.get(CARD_TAG)) {
     win.customElements.define(CARD_TAG, UPICard);
   }

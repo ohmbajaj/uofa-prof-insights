@@ -292,6 +292,9 @@ export class UPISidebar extends HTMLElement {
 }
 
 export function defineSidebar(win: Window & typeof globalThis = window): void {
+  // `customElements` is null inside a content script's isolated world.
+  // Registering is impossible there; throwing would kill the whole script.
+  if (!win.customElements) return;
   if (!win.customElements.get(SIDEBAR_TAG)) {
     win.customElements.define(SIDEBAR_TAG, UPISidebar);
   }
