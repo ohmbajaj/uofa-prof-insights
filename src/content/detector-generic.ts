@@ -88,8 +88,16 @@ function isInterfaceText(text: string): boolean {
 const EXCLUDED_ANCESTORS =
   'nav, header, footer, [role="navigation"], [role="banner"], upi-sidebar, upi-card, upi-filter';
 
-/** How far up to look for a course code before giving up. */
-const MAX_ANCESTOR_HOPS = 6;
+/**
+ * How far up to look for a course code before giving up.
+ *
+ * Generous, because this runs against single-page apps: studentcenter's class
+ * cards nest the instructor a dozen levels below the heading that carries the
+ * course code, through layout wrappers that contribute nothing but depth. Six
+ * hops is plenty for hand-written markup and far too few for a framework's.
+ * The stop-at-BODY guard is what actually bounds the search.
+ */
+const MAX_ANCESTOR_HOPS = 15;
 
 function looksLikePerson(text: string): boolean {
   const trimmed = text.trim();

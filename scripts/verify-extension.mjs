@@ -82,25 +82,35 @@ const PAGE = `<!doctype html>
 </style>
 </head>
 <body>
-<h2>Classic UAccess</h2>
-<table id="CLASS_SRCH_WRK2_STRM$scroll$0">
-  <tr>
-    <th id="CLASS_SRCH_WRK2_STRM_SUBJ_CATALOG_NBR$0">Class</th>
-    <th id="CLASS_SRCH_WRK2_STRM_CLASS_SECTION$0">Class Nbr</th>
-    <th id="CLASS_SRCH_WRK2_STRM_INSTRUCTOR$0">Instructor</th>
-  </tr>
-  <tr><td>CSC 210</td><td>71613</td><td id="MTG_INSTR$0">Mercer, Richard</td></tr>
-  <tr><td>CSC 245</td><td>71615</td><td id="MTG_INSTR$1">Debray, Saumya</td></tr>
-</table>
-
-<h2>Student Center card layout</h2>
-<div class="card">
-  <h3>ECE 201 - Programming 2</h3>
-  <div class="meta">
-    <span><i class="icon-place"></i>Gittings Bldg, Rm 201</span>
-    <span><i class="icon-person"></i>Ratchaneekorn Thamvichai, Na Liu</span>
+<!--
+  The Class Schedule card layout, rebuilt from studentcenter.arizona.edu and
+  nested as deeply as a real SPA nests it. Deliberately the ONLY layout here:
+  the generic detector runs only when the classic and Student Center detectors
+  find nothing, so a page containing a classic table never exercises it — which
+  is exactly why the earlier harness passed while the real page stayed empty.
+-->
+<div id="app"><div class="page"><div class="content"><div class="results">
+  <div class="course-card">
+    <div class="card-head">
+      <h2><span class="code">ECE 201 - Programming 2</span> <span class="pill">Enrolled</span></h2>
+      <div class="units">3.00 Units - <a href="#">Academic Deadlines</a></div>
+    </div>
+    <div class="card-body">
+      <div class="grid">
+        <div class="cell"><div class="label">Class Nbr</div><div class="value">42741</div></div>
+        <div class="cell"><div class="label">Section</div><div class="value">001</div></div>
+        <div class="cell"><div class="label">Component</div><div class="value">Lecture</div></div>
+      </div>
+      <div class="meta-row">
+        <span class="meta"><i class="ico"></i>8/24/26 - 12/9/26</span>
+        <span class="meta"><i class="ico"></i>TuTh 11:00AM - 12:15PM</span>
+        <span class="meta"><i class="ico"></i>Gittings Bldg, Rm 201</span>
+        <span class="meta"><i class="ico"></i>Ratchaneekorn Thamvichai, Na Liu</span>
+      </div>
+      <button>VIEW MORE DETAILS</button>
+    </div>
   </div>
-</div>
+</div></div></div></div>
 
 <pre id="out">waiting…</pre>
 <script>
@@ -363,7 +373,7 @@ const checks = [
   ['content script injected badges', report.badges > 0],
   ['every badge has a shadow root', report.badges > 0 && report.upgraded === report.badges],
   ['badges resolved against the live API', report.resolved === report.badges && report.badges > 0],
-  ['classic table instructors badged', report.anchors.some((a) => String(a).includes('MTG_INSTR'))],
+  ['both instructors in the shared field badged', report.badges === 2],
 ];
 
 console.log('');
