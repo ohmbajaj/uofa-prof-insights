@@ -83,34 +83,70 @@ const PAGE = `<!doctype html>
 </head>
 <body>
 <!--
-  The Class Schedule card layout, rebuilt from studentcenter.arizona.edu and
-  nested as deeply as a real SPA nests it. Deliberately the ONLY layout here:
-  the generic detector runs only when the classic and Student Center detectors
-  find nothing, so a page containing a classic table never exercises it — which
-  is exactly why the earlier harness passed while the real page stayed empty.
+  Two real studentcenter.arizona.edu layouts, rebuilt from screenshots and
+  nested as deeply as the SPA nests them. Deliberately no classic results
+  table: the generic detector runs only when the classic and Student Center
+  detectors both find nothing, so including one means this path is never
+  exercised — which is why an earlier version of this harness passed while
+  the real pages stayed empty.
 -->
-<div id="app"><div class="page"><div class="content"><div class="results">
-  <div class="course-card">
-    <div class="card-head">
-      <h2><span class="code">ECE 201 - Programming 2</span> <span class="pill">Enrolled</span></h2>
-      <div class="units">3.00 Units - <a href="#">Academic Deadlines</a></div>
-    </div>
-    <div class="card-body">
-      <div class="grid">
-        <div class="cell"><div class="label">Class Nbr</div><div class="value">42741</div></div>
-        <div class="cell"><div class="label">Section</div><div class="value">001</div></div>
-        <div class="cell"><div class="label">Component</div><div class="value">Lecture</div></div>
+<div id="app"><div class="page"><div class="content">
+
+  <!-- /academics/class-search/results -->
+  <div class="results">
+    <h2>Search Results</h2>
+    <p>1 class(es) found, 13 class section(s) found</p>
+    <div class="accordion">
+      <div class="panel">
+        <div class="panel-header"><span>CHEM 151 - Chemical Thinking I</span></div>
+        <div class="panel-body">
+          <div class="section-row">
+            <div class="section-head">Section 001 &nbsp; Lecture &nbsp; (29212)</div>
+            <div class="session-box">
+              <div><div class="label">Session</div><div>Regular Academic Session</div></div>
+              <div><div class="label">Instruction Mode</div><div>In Person</div></div>
+            </div>
+            <div class="meeting">
+              <div class="meeting-title">Meeting Information</div>
+              <div class="cols">
+                <div class="col">
+                  <div class="line"><i class="ico"></i>MoWeFr 8:00AM - 8:50AM</div>
+                  <div class="line"><i class="ico"></i>Weaver Sci-Engr Lbry, Rm 200SW</div>
+                </div>
+                <div class="col">
+                  <div class="line"><i class="ico"></i>Amy Graham</div>
+                  <div class="line"><i class="ico"></i>8/24/26 - 12/9/26</div>
+                </div>
+              </div>
+            </div>
+            <div class="tags">
+              <span>Gen Ed: Exploring Perspectives, Natural Scientist</span>
+              <span>SUN# CHM 1151 - General Chemistry I</span>
+            </div>
+            <button>CLASS DETAILS</button><button>SELECT</button>
+          </div>
+        </div>
       </div>
-      <div class="meta-row">
-        <span class="meta"><i class="ico"></i>8/24/26 - 12/9/26</span>
-        <span class="meta"><i class="ico"></i>TuTh 11:00AM - 12:15PM</span>
-        <span class="meta"><i class="ico"></i>Gittings Bldg, Rm 201</span>
-        <span class="meta"><i class="ico"></i>Ratchaneekorn Thamvichai, Na Liu</span>
-      </div>
-      <button>VIEW MORE DETAILS</button>
     </div>
   </div>
-</div></div></div></div>
+
+  <!-- /academics/class-schedule -->
+  <div class="results">
+    <div class="course-card">
+      <div class="card-head">
+        <h2><span class="code">ECE 201 - Programming 2</span> <span class="pill">Enrolled</span></h2>
+      </div>
+      <div class="card-body">
+        <div class="meta-row">
+          <span class="meta"><i class="ico"></i>TuTh 11:00AM - 12:15PM</span>
+          <span class="meta"><i class="ico"></i>Gittings Bldg, Rm 201</span>
+          <span class="meta"><i class="ico"></i>Ratchaneekorn Thamvichai, Na Liu</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div></div></div>
 
 <pre id="out">waiting…</pre>
 <script>
@@ -373,7 +409,9 @@ const checks = [
   ['content script injected badges', report.badges > 0],
   ['every badge has a shadow root', report.badges > 0 && report.upgraded === report.badges],
   ['badges resolved against the live API', report.resolved === report.badges && report.badges > 0],
-  ['both instructors in the shared field badged', report.badges === 2],
+  // Amy Graham from class search, plus Thamvichai and Liu from class schedule.
+  ['every instructor on both layouts badged', report.badges === 3],
+  ['class-search instructor badged', report.rendered.length >= 1],
 ];
 
 console.log('');

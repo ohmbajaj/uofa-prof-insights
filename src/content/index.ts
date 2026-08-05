@@ -106,7 +106,12 @@ function refreshSidebar(): void {
  * rather than taking down the detection pass that spawned it. `refresh` bypasses
  * the cache, which is what the retry and Refresh actions need.
  */
-async function resolveBadge(badge: UPIBadge, name: string, refresh = false): Promise<void> {
+async function resolveBadge(
+  badge: UPIBadge,
+  name: string,
+  refresh = false,
+  speculative = false,
+): Promise<void> {
   badge.data = 'loading';
 
   try {
@@ -114,6 +119,20 @@ async function resolveBadge(badge: UPIBadge, name: string, refresh = false): Pro
       { type: refresh ? 'REFRESH_PROFESSOR' : 'LOOKUP_PROFESSOR', name },
       'PROFESSOR_RESULT',
     );
+
+    /*
+     * A guessed name that matches nobody was probably never a name. Withdrawing
+     * the badge is the difference between a heuristic that stays out of the way
+     * and one that prints "N/A" next to the words "In Person".
+     */
+    if (speculative && reply.data === null) {
+      badge.remove();
+      results.set(name, null);
+      refreshRanks();
+      refreshSidebar();
+      return;
+    }
+
     badge.data = reply.data;
     results.set(name, reply.data);
     updateOpenCard(name, reply.data);
@@ -202,7 +221,7 @@ function onDetect(profs: DetectedProfessor[]): void {
 
   for (const { badge, professor } of added) {
     // Fire and forget — resolveBadge handles its own failures.
-    void resolveBadge(badge, professor.name);
+    void resolveBadge(badge, professor.name, false, professor.speculative ?? false);
   }
 }
 

@@ -68,7 +68,10 @@ const UI_VOCABULARY = new Set(
    sophomore space special spring staff start statistics status structure structures student
    studies subject summer sustainability swap syllabus systems term textbook theater theatre
    theoretical theory thesis third time times title to topics total transcript undergraduate
-   units update view vision waitlist waitlisted web weekly winter withdraw world writing year`
+   units update view vision waitlist waitlisted web weekly winter withdraw world writing year
+   in person mode instruction meeting information session component career campus hybrid remote
+   asynchronous synchronous lab lecture discussion open closed full reserved consent permission
+   required optional cart shopping select details expand collapse modify results found sections`
     .split(/\s+/)
     .filter(Boolean),
 );
@@ -176,6 +179,8 @@ export function detectProfessorsGeneric(doc: Document): DetectedProfessor[] {
         element,
         name,
         rawName: text,
+        // Inferred from structure, so the badge is withdrawn if nobody matches.
+        speculative: true,
         ...(courseCode ? { courseCode } : {}),
       });
     }

@@ -16,6 +16,18 @@ export interface DetectedProfessor {
    * their lifetime average across everything they teach.
    */
   courseCode?: string;
+  /**
+   * Inferred from page structure rather than from a known selector.
+   *
+   * The generic detector guesses, and on real pages it will occasionally
+   * mistake a label for a name — "Instruction Mode" and "In Person" are both
+   * two capitalised words with no digits. A speculative badge is therefore
+   * removed when the lookup finds nobody, instead of settling on a grey N/A
+   * beside something that was never a person. Badges from the classic and
+   * Student Center detectors keep their N/A, because there the element really
+   * is an instructor field and "not on RMP" is the useful answer.
+   */
+  speculative?: boolean;
 }
 
 export const DETECT_DEBOUNCE_MS = 250;
