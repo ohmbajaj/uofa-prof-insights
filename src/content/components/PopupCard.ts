@@ -1,5 +1,10 @@
 import { getRatingColor, normalizeCourseCode } from '@shared/utils';
-import { COLOR_UNKNOWN, MAX_ALTERNATES_SHOWN, MAX_COURSES_SHOWN } from '@shared/constants';
+import {
+  COLOR_UNKNOWN,
+  MAX_ALTERNATES_SHOWN,
+  MAX_COURSES_SHOWN,
+  MIN_PHRASE_MENTIONS,
+} from '@shared/constants';
 import type { ProfessorData } from '@shared/types';
 
 export const CARD_TAG = 'upi-card';
@@ -105,6 +110,21 @@ const STYLES = `
     color: #0c234b;
     font-size: 11px;
   }
+
+  .facts { margin: 0; padding-left: 15px; }
+  .facts li { padding: 1px 0; }
+
+  .phrases { display: flex; flex-wrap: wrap; gap: 4px; }
+  .phrase {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    background: #f2f4f7;
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 11px;
+  }
+  .phrase-n { color: #8a8a8a; font-size: 10px; }
 
   .alt {
     display: block;
@@ -299,6 +319,8 @@ export class UPICard extends HTMLElement {
     }
 
     this.#renderCourses(data);
+    this.#renderPractical(data);
+    this.#renderPhrases(data);
     this.#renderAlternates(data);
 
     const link = doc.createElement('a');
@@ -396,6 +418,98 @@ export class UPICard extends HTMLElement {
    * better-evidenced of two profiles the user deserves to see that a choice was
    * made and where the other numbers live.
    */
+  /**
+   * Course logistics: attendance, textbook, online delivery.
+   *
+   * These answer questions a rating cannot — whether you can miss a lecture,
+   * whether you have to buy the book — and they come from the same rows the
+   * tag tally already reads.
+   */
+  #renderPractical(data: ProfessorData): void {
+    const insights = data.reviewInsights;
+    if (!insights) return;
+
+    const facts: string[] = [];
+    if (insights.attendanceMandatoryPct !== null) {
+      facts.push(
+        insights.attendanceMandatoryPct >= 50
+          ? `Attendance mandatory (${insights.attendanceMandatoryPct}% say so)`
+          : `Attendance flexible (${100 - insights.attendanceMandatoryPct}% say so)`,
+      );
+    }
+    if (insights.textbookUsedPct !== null) {
+      facts.push(
+        insights.textbookUsedPct >= 50
+          ? `Textbook used (${insights.textbookUsedPct}%)`
+          : `Textbook rarely used (${100 - insights.textbookUsedPct}%)`,
+      );
+    }
+    if (insights.onlinePct !== null && insights.onlinePct >= 25) {
+      facts.push(`${insights.onlinePct}% taken online`);
+    }
+    if (insights.topGrade && insights.gradesReported >= MIN_PHRASE_MENTIONS) {
+      facts.push(`Most reported grade: ${insights.topGrade}`);
+    }
+    if (facts.length === 0) return;
+
+    const doc = this.ownerDocument;
+    const section = doc.createElement('div');
+    section.className = 'section';
+
+    const heading = doc.createElement('h3');
+    heading.textContent = 'What to expect';
+    section.appendChild(heading);
+
+    const list = doc.createElement('ul');
+    list.className = 'facts';
+    for (const fact of facts) {
+      const item = doc.createElement('li');
+      item.textContent = fact;
+      list.appendChild(item);
+    }
+
+    section.appendChild(list);
+    this.#body.appendChild(section);
+  }
+
+  /**
+   * Phrases students repeat, with how many said them.
+   *
+   * The count is shown deliberately: "3 mentions" reads very differently from
+   * a bare quote, and this is frequency, not sentiment — nothing here claims
+   * to know whether a phrase was meant kindly.
+   */
+  #renderPhrases(data: ProfessorData): void {
+    const phrases = data.reviewInsights?.phrases ?? [];
+    if (phrases.length === 0) return;
+
+    const doc = this.ownerDocument;
+    const section = doc.createElement('div');
+    section.className = 'section';
+
+    const heading = doc.createElement('h3');
+    heading.textContent = `Repeated in ${data.reviewInsights?.reviewsRead ?? 0} recent reviews`;
+    section.appendChild(heading);
+
+    const wrap = doc.createElement('div');
+    wrap.className = 'phrases';
+    for (const { phrase, mentions } of phrases) {
+      const chip = doc.createElement('span');
+      chip.className = 'phrase';
+      chip.textContent = phrase;
+
+      const count = doc.createElement('span');
+      count.className = 'phrase-n';
+      count.textContent = `×${mentions}`;
+
+      chip.appendChild(count);
+      wrap.appendChild(chip);
+    }
+
+    section.appendChild(wrap);
+    this.#body.appendChild(section);
+  }
+
   #renderAlternates(data: ProfessorData): void {
     const alternates = data.alternateProfiles ?? [];
     if (alternates.length === 0) return;

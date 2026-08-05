@@ -64,6 +64,13 @@ export const MAX_TOP_TAGS = 5;
  */
 export const MIN_COURSE_RATINGS = 3;
 
+/**
+ * A phrase must recur across this many separate reviews before it is shown.
+ * One student's turn of phrase is not a theme.
+ */
+export const MIN_PHRASE_MENTIONS = 3;
+export const MAX_REVIEW_PHRASES = 5;
+
 /** Bumped whenever ProfessorData's shape changes; older entries are discarded. */
 export const CACHE_SCHEMA_VERSION = 2;
 

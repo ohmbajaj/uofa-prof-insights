@@ -47,6 +47,27 @@ export interface CourseRating {
   numRatings: number;
 }
 
+/**
+ * Practical facts and recurring phrases pulled from review text.
+ *
+ * Percentages are shares of the reviews that *answered* that question, not of
+ * all reviews, and are null when nobody did. Phrases carry their mention count
+ * so two mentions never read as a consensus. There is deliberately no
+ * sentiment score — see reviews.ts.
+ */
+export interface ReviewInsights {
+  /** Share reporting attendance as mandatory, 0-100. */
+  attendanceMandatoryPct: number | null;
+  textbookUsedPct: number | null;
+  onlinePct: number | null;
+  /** How many reviews reported a real letter grade. */
+  gradesReported: number;
+  topGrade: string | null;
+  phrases: { phrase: string; mentions: number }[];
+  /** Reviews the summary was built from — the recency sample, not all-time. */
+  reviewsRead: number;
+}
+
 export interface ProfessorData {
   /** RMP's opaque global node id, e.g. "VGVhY2hlci0xMjMwMg==" (base64 "Teacher-12302"). */
   id: string;
@@ -72,6 +93,8 @@ export interface ProfessorData {
   alternateProfiles: AlternateProfile[];
   /** Per-course breakdown derived from individual ratings, most-rated first. */
   courseRatings: CourseRating[];
+  /** Course facts and recurring phrases from review text; null when unrated. */
+  reviewInsights: ReviewInsights | null;
 }
 
 export interface CacheEntry {

@@ -186,6 +186,14 @@ function harnessHtml(bundlePath) {
         { course: 'CSC110', rating: 3.6, difficulty: 2.2, numRatings: 12 },
         { course: 'CSC335', rating: 2.3, difficulty: 4.1, numRatings: 8 },
       ],
+      reviews: {
+        attendanceMandatoryPct: 69, textbookUsedPct: 45, onlinePct: 23,
+        gradesReported: 24, topGrade: 'A+', reviewsRead: 40,
+        phrases: [
+          { phrase: 'lots of homework', mentions: 7 },
+          { phrase: 'engaging lectures', mentions: 4 },
+        ],
+      },
     },
     'Saumya Debray': { rating: 3.4, difficulty: 4.3, wta: 60, n: 21, tags: ['Get ready to read'] },
     "Sean O'Brien": { rating: 4.6, difficulty: 2.1, wta: 92, n: 8, tags: ['Caring'] },
@@ -213,6 +221,7 @@ function harnessHtml(bundlePath) {
               matchConfidence: hit.confidence ?? 'exact',
               alternateProfiles: hit.alternates ?? [],
               courseRatings: hit.courses ?? [],
+              reviewInsights: hit.reviews ?? null,
             } : null,
           });
         }, 60);
@@ -317,6 +326,8 @@ function harnessHtml(bundlePath) {
       courseRows: [...(card.shadowRoot?.querySelectorAll('.course .code') ?? [])].map((n) => n.textContent),
       currentCourseFirst: card.shadowRoot?.querySelector('.course')?.classList.contains('is-current') ?? false,
       alternatesShown: [...(card.shadowRoot?.querySelectorAll('.alt') ?? [])].map((n) => n.textContent.trim()),
+      practicalFacts: [...(card.shadowRoot?.querySelectorAll('.facts li') ?? [])].map((n) => n.textContent.trim()),
+      phrasesShown: [...(card.shadowRoot?.querySelectorAll('.phrase') ?? [])].map((n) => n.textContent.trim()),
     } : { opened: false },
     // "BEST" must appear exactly once — on the top-rated instructor only.
     bestPills: badges.filter((b) => (b.shadowRoot?.textContent ?? '').includes('BEST')).length,
@@ -612,6 +623,15 @@ if (report) {
     ['course breakdown rendered', (report.card.courseRows?.length ?? 0) > 0],
     ['browsed course pinned first', report.card.currentCourseFirst === true],
     ['duplicate profile disclosed', (report.card.alternatesShown?.length ?? 0) > 0],
+    ['card shows attendance and textbook facts', (report.card.practicalFacts?.length ?? 0) >= 3],
+    [
+      'attendance reported as mandatory with its share',
+      /Attendance mandatory \(69%/.test((report.card.practicalFacts ?? []).join(' ')),
+    ],
+    [
+      'phrases carry their mention counts',
+      /lots of homework.*×7/.test((report.card.phrasesShown ?? []).join(' ')),
+    ],
     ['exactly one BEST pill', report.bestPills === 1],
     ['BEST pill sits on the top-rated instructor', report.bestPillOnTopRated === "Sean O'Brien"],
 

@@ -94,6 +94,41 @@ describe.skipIf(!live)('rmp-api (live)', () => {
     await expect(searchProfessor('Ratchaneekorn Thamvich')).resolves.toBeNull();
   }, 30_000);
 
+  it('derives practical facts and phrases from real review text', async () => {
+    const prof = await searchProfessor('Rick Mercer');
+    const insights = prof?.reviewInsights;
+
+    expect(insights).not.toBeNull();
+    expect(insights?.reviewsRead).toBeGreaterThan(0);
+
+    // Percentages are shares of those who answered, so must stay in range.
+    for (const pct of [
+      insights?.attendanceMandatoryPct,
+      insights?.textbookUsedPct,
+      insights?.onlinePct,
+    ]) {
+      if (pct !== null && pct !== undefined) {
+        expect(pct).toBeGreaterThanOrEqual(0);
+        expect(pct).toBeLessThanOrEqual(100);
+      }
+    }
+
+    // Every phrase must clear the "said by several people" bar.
+    for (const p of insights?.phrases ?? []) {
+      expect(p.mentions).toBeGreaterThanOrEqual(3);
+    }
+
+    console.log(
+      '[live] practical:',
+      `attendance=${insights?.attendanceMandatoryPct}% textbook=${insights?.textbookUsedPct}%`,
+      `online=${insights?.onlinePct}% topGrade=${insights?.topGrade} (${insights?.gradesReported} reported)`,
+    );
+    console.log(
+      '[live] phrases:',
+      (insights?.phrases ?? []).map((p) => `"${p.phrase}" x${p.mentions}`).join(', ') || '(none)',
+    );
+  }, 30_000);
+
   it('derives per-course ratings from real review data', async () => {
     const prof = await searchProfessor('Rick Mercer');
 

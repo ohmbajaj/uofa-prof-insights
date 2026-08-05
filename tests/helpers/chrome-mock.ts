@@ -68,6 +68,7 @@ export function makeProfessor(patch: Partial<ProfessorData> = {}): ProfessorData
     matchConfidence: 'exact',
     alternateProfiles: [],
     courseRatings: [],
+    reviewInsights: null,
     ...patch,
   };
 }

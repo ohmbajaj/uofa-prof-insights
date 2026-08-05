@@ -11,7 +11,14 @@ import {
 } from '@shared/constants';
 import { comparableName, givenNamesMatch, looselyMatches, splitName } from '@shared/names';
 import { normalizeCourseCode } from '@shared/utils';
-import type { AlternateProfile, CourseRating, MatchConfidence, ProfessorData } from '@shared/types';
+import type {
+  AlternateProfile,
+  CourseRating,
+  MatchConfidence,
+  ProfessorData,
+  ReviewInsights,
+} from '@shared/types';
+import { summarizeReviews } from './reviews';
 
 /**
  * Teacher search query, verified against the live endpoint on 2026-08-02.
@@ -57,7 +64,10 @@ query TeacherRatingsQuery($id: ID!, $count: Int!) {
     ... on Teacher {
       courseCodes { courseName courseCount }
       ratings(first: $count) {
-        edges { node { class ratingTags helpfulRating difficultyRating date } }
+        edges { node {
+          class ratingTags helpfulRating difficultyRating date
+          comment attendanceMandatory textbookIsUsed grade isForOnlineClass
+        } }
       }
     }
   }
@@ -86,6 +96,13 @@ interface RatingNode {
   class: string | null;
   helpfulRating: number | null;
   difficultyRating: number | null;
+  comment: string | null;
+  /** "mandatory" / "non mandatory" / "" — free text, not a boolean. */
+  attendanceMandatory: string | null;
+  textbookIsUsed: boolean | null;
+  /** Self-reported, and often "Rather not say". */
+  grade: string | null;
+  isForOnlineClass: boolean | null;
 }
 
 interface RatingsResponse {
@@ -157,6 +174,7 @@ function toAlternate(node: TeacherNode): AlternateProfile {
 export interface MapOptions {
   topTags?: string[];
   courseRatings?: CourseRating[];
+  reviewInsights?: ReviewInsights | null;
   matchConfidence?: MatchConfidence;
   alternates?: TeacherNode[];
 }
@@ -178,6 +196,7 @@ export function mapTeacherNode(node: TeacherNode, options: MapOptions = {}): Pro
     matchConfidence: options.matchConfidence ?? 'exact',
     alternateProfiles: (options.alternates ?? []).map(toAlternate),
     courseRatings: options.courseRatings ?? [],
+    reviewInsights: options.reviewInsights ?? null,
   };
 }
 
@@ -339,6 +358,7 @@ export function tallyCourseRatings(
 export interface RatingInsights {
   topTags: string[];
   courseRatings: CourseRating[];
+  reviews: ReviewInsights | null;
 }
 
 /**
@@ -356,6 +376,7 @@ export async function fetchRatingInsights(teacherId: string): Promise<RatingInsi
   return {
     topTags: tallyTags(nodes.map((n) => n.ratingTags)),
     courseRatings: tallyCourseRatings(nodes),
+    reviews: nodes.length > 0 ? summarizeReviews(nodes) : null,
   };
 }
 
@@ -465,18 +486,19 @@ export async function searchProfessor(
   if (!match) return null;
 
   // Missing insights should never sink an otherwise good result.
-  let insights: RatingInsights = { topTags: [], courseRatings: [] };
+  let insights: RatingInsights = { topTags: [], courseRatings: [], reviews: null };
   if ((match.node.numRatings ?? 0) > 0) {
     try {
       insights = await fetchRatingInsights(match.node.id);
     } catch {
-      insights = { topTags: [], courseRatings: [] };
+      insights = { topTags: [], courseRatings: [], reviews: null };
     }
   }
 
   return mapTeacherNode(match.node, {
     topTags: insights.topTags,
     courseRatings: insights.courseRatings,
+    reviewInsights: insights.reviews,
     matchConfidence: match.confidence,
     alternates: match.alternates,
   });
