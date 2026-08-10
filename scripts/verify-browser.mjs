@@ -205,7 +205,7 @@ function harnessHtml(bundlePath) {
       sendMessage: (message) => new Promise((resolve) => {
         setTimeout(() => {
           if (message.type === 'GET_SETTINGS') {
-            return resolve({ type: 'SETTINGS', settings: { autoDetect: true, showComparison: true, showFilterBar: true, cacheTTLDays: 7 } });
+            return resolve({ type: 'SETTINGS', settings: { autoDetect: true, showFilterBar: true, cacheTTLDays: 7 } });
           }
           const hit = DB[message.name];
           resolve({
@@ -282,25 +282,20 @@ function harnessHtml(bundlePath) {
   const card = document.querySelector('upi-card');
   const cardRect = card ? card.getBoundingClientRect() : null;
   const anchorRect = first ? first.getBoundingClientRect() : null;
-  const sidebar = document.querySelector('upi-sidebar');
 
   const report = {
     badgeCount: badges.length,
     upgraded: badges.filter((b) => b.shadowRoot !== null).length,
     constructorName: badges[0] ? badges[0].constructor.name : null,
     rendered: badges.map((b) => (b.shadowRoot?.querySelector('.badge')?.textContent ?? '').trim()),
-    // A fixed-position sidebar silently covers the right-hand columns unless
-    // the page reserves room for it. That is the Instructor column here — the
-    // one the badges hang off — so nothing may sit underneath the panel.
-    instructorCellsVisible: (() => {
-      const panel = document.querySelector('upi-sidebar');
-      if (!panel) return null;
-      const left = panel.getBoundingClientRect().left;
-      const cells = [
-        ...document.querySelectorAll('[id^="MTG_INSTR"], .instructor'),
-      ];
-      return cells.every((c) => c.getBoundingClientRect().right <= left + 1);
-    })(),
+    /*
+     * The extension must not move the page around. The comparison panel used to
+     * be pinned to the right edge and the page was narrowed to make room for
+     * it; both are gone, so nothing may touch the body's padding and no
+     * instructor cell may end up covered.
+     */
+    pageUntouched: document.body.style.paddingRight === '',
+    panelsPinnedToEdge: document.querySelectorAll('upi-sidebar').length,
     // Did any badge escape its cell? (a <tr>-parented badge would.)
     badgesInsideCell: badges.every((b) => b.closest('td') !== null || b.closest('.instructor') !== null),
     badgeFitsCell: badges.every((b) => {
@@ -320,7 +315,6 @@ function harnessHtml(bundlePath) {
       height: Math.round(cardRect.height),
       belowAnchor: Math.round(cardRect.top) >= Math.round(anchorRect.bottom),
       withinViewport: cardRect.left >= 0 && cardRect.right <= window.innerWidth,
-      clearOfSidebar: sidebar ? cardRect.right <= sidebar.getBoundingClientRect().left + 1 : true,
       text: (card.shadowRoot?.querySelector('.card')?.textContent ?? '').replace(/\\s+/g, ' ').trim(),
       // The course being browsed must be pinned first and labelled.
       courseRows: [...(card.shadowRoot?.querySelectorAll('.course .code') ?? [])].map((n) => n.textContent),
@@ -344,12 +338,6 @@ function harnessHtml(bundlePath) {
       rowsRatedOnly,
       rowsRestored,
     },
-    sidebar: sidebar ? {
-      mounted: true,
-      width: Math.round(sidebar.getBoundingClientRect().width),
-      rows: [...sidebar.shadowRoot.querySelectorAll('.meta .name')].map((n) => n.textContent),
-      scores: [...sidebar.shadowRoot.querySelectorAll('.score')].map((n) => n.textContent),
-    } : { mounted: false },
   };
 
   document.getElementById('verify').textContent = JSON.stringify(report, null, 2);
@@ -393,8 +381,8 @@ ${css ? `<link rel="stylesheet" href="./${css}">` : ''}
             { name: 'Saumya Debray', department: 'Computer Science', overallRating: 3.4, numRatings: 21, rmpUrl: 'https://www.ratemyprofessors.com/professor/3', viewedAt: Date.now() - 2 * 86400000 },
           ],
         });
-        if (m.type === 'GET_SETTINGS') return resolve({ type: 'SETTINGS', settings: { autoDetect: true, showComparison: true, cacheTTLDays: 7 } });
-        if (m.type === 'SAVE_SETTINGS') return resolve({ type: 'SETTINGS', settings: { autoDetect: true, showComparison: true, cacheTTLDays: 7, ...m.settings } });
+        if (m.type === 'GET_SETTINGS') return resolve({ type: 'SETTINGS', settings: { autoDetect: true, showFilterBar: true, cacheTTLDays: 7 } });
+        if (m.type === 'SAVE_SETTINGS') return resolve({ type: 'SETTINGS', settings: { autoDetect: true, showFilterBar: true, cacheTTLDays: 7, ...m.settings } });
         if (m.type === 'CLEAR_CACHE') return resolve({ type: 'CACHE_CLEARED' });
         if (m.type === 'LOOKUP_PROFESSOR') return resolve({
           type: 'PROFESSOR_RESULT', name: m.name,
@@ -615,10 +603,8 @@ if (report) {
     ['detail card opened', report.card.opened === true],
     ['card sits below its badge', report.card.belowAnchor === true],
     ['card stays within the viewport', report.card.withinViewport === true],
-    ['card clears the sidebar', report.card.clearOfSidebar === true],
-    ['sidebar mounted', report.sidebar.mounted === true],
-    ['sidebar ranked best-first', report.sidebar.scores?.[0] === '4.6'],
-    ['sidebar does not cover instructor names', report.instructorCellsVisible === true],
+    ['no panel pinned to the page edge', report.panelsPinnedToEdge === 0],
+    ['the page was left exactly as found', report.pageUntouched === true],
 
     ['course breakdown rendered', (report.card.courseRows?.length ?? 0) > 0],
     ['browsed course pinned first', report.card.currentCourseFirst === true],
@@ -658,7 +644,8 @@ if (report) {
     ['popup result shows difficulty', popup?.showsDifficulty === true],
     ['popup result shows tags', popup?.showsTags === true],
 
-    ['settings tab renders all four controls', settings?.settingsControls?.length === 4],
+    // autoDetect, showFilterBar, cacheTTLDays.
+    ['settings tab renders all three controls', settings?.settingsControls?.length === 3],
     ['settings reflects stored autoDetect', settings?.autoDetectChecked === true],
     ['settings reflects stored TTL', settings?.ttlValue === '7'],
   ];

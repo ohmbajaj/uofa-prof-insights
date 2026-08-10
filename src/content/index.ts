@@ -5,13 +5,11 @@ import { startDetector } from './detector';
 import type { DetectedProfessor } from './detector';
 import { injectBadges } from './injector';
 import { closeCard, updateOpenCard } from './card-controller';
-import { syncSidebar } from './sidebar-controller';
 import { syncFilterBar } from './filter-controller';
 import { CARD_REFRESH_EVENT } from './components/PopupCard';
 import { collectDiagnostics } from './diagnostics';
 import { BADGE_CLICK_EVENT, badgeFromElement, badgesIn } from './components/Badge';
 import type { BadgeData, UPIBadge } from './components/Badge';
-import type { ComparisonRow } from './components/ComparisonSidebar';
 
 console.log('[UPI] Content script loaded on UAccess');
 
@@ -41,7 +39,7 @@ let settings: ExtensionSettings = { ...DEFAULT_SETTINGS };
 
 /** Lookup results by normalized name. Absent means "still pending". */
 const results = new Map<string, ProfessorData | null>();
-/** Most recent detection pass, used to build the comparison rows. */
+/** Most recent detection pass, used for ranking and filtering. */
 let detected: DetectedProfessor[] = [];
 
 /**
@@ -80,25 +78,6 @@ function refreshFilter(): void {
   }
 }
 
-function refreshSidebar(): void {
-  const names = [...new Set(detected.map((p) => p.name))];
-  const rows: ComparisonRow[] = names.map((name) => ({
-    name,
-    data: results.get(name) ?? null,
-  }));
-
-  try {
-    syncSidebar(document, {
-      enabled: settings.showComparison,
-      rows,
-      loading: names.some((name) => !results.has(name)),
-      anchorFor: (row) => detected.find((p) => p.name === row.name)?.element,
-    });
-  } catch (error) {
-    console.error('[UPI] sidebar update failed:', error);
-  }
-}
-
 /**
  * Sends one lookup and applies the result to its badge.
  *
@@ -129,7 +108,6 @@ async function resolveBadge(
       badge.remove();
       results.set(name, null);
       refreshRanks();
-      refreshSidebar();
       return;
     }
 
@@ -138,14 +116,13 @@ async function resolveBadge(
     updateOpenCard(name, reply.data);
   } catch (error) {
     badge.data = 'error';
-    // Recorded as "no data" so the sidebar can stop waiting on it.
+    // Recorded as "no data" so the filter stops counting it as pending.
     results.set(name, null);
     updateOpenCard(name, null);
     console.error(`[UPI] lookup failed for "${name}":`, error);
   }
   refreshRanks();
   refreshFilter();
-  refreshSidebar();
 }
 
 /**
@@ -211,7 +188,6 @@ function onDetect(profs: DetectedProfessor[]): void {
   }
 
   refreshFilter();
-  refreshSidebar();
 
   if (added.length > 0) {
     void sendMessage({ type: 'BADGES_SHOWN', count: added.length }, 'USAGE').catch(() => {

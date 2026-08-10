@@ -141,7 +141,7 @@ describe('detectProfessorsGeneric — restraint', () => {
   it('ignores our own injected UI', () => {
     document.body.innerHTML = `
       <div class="card">ECE 201
-        <upi-sidebar><span>Rick Mercer</span></upi-sidebar>
+        <upi-card><span>Rick Mercer</span></upi-card>
       </div>`;
     expect(detectProfessorsGeneric(document)).toEqual([]);
   });

@@ -230,7 +230,6 @@ describe('Settings page', () => {
         type: 'SETTINGS',
         settings: {
           autoDetect: false,
-          showComparison: true,
           showFilterBar: true,
           cacheTTLDays: 14,
         },
@@ -241,7 +240,7 @@ describe('Settings page', () => {
     await waitFor(() =>
       expect(screen.getByLabelText('Show ratings automatically')).toHaveProperty('checked', false),
     );
-    expect(screen.getByLabelText('Show comparison sidebar')).toHaveProperty('checked', true);
+    expect(screen.getByLabelText('Show rating filter')).toHaveProperty('checked', true);
     expect(screen.getByLabelText('Keep ratings for')).toHaveProperty('value', '14');
   });
 
@@ -301,8 +300,8 @@ describe('Settings page', () => {
     });
     render(<Settings />);
 
-    await waitFor(() => expect(screen.getByLabelText('Show comparison sidebar')).toBeTruthy());
-    fireEvent.click(screen.getByLabelText('Show comparison sidebar'));
+    await waitFor(() => expect(screen.getByLabelText('Show rating filter')).toBeTruthy());
+    fireEvent.click(screen.getByLabelText('Show rating filter'));
 
     await waitFor(() => expect(screen.getByText('could not save')).toBeTruthy());
   });

@@ -117,24 +117,6 @@ export default function Settings() {
 
       <div className="field">
         <input
-          id="showComparison"
-          type="checkbox"
-          checked={settings.showComparison}
-          onChange={(e) => void save({ showComparison: e.target.checked })}
-        />
-        <div className="field__text">
-          <label className="field__label" htmlFor="showComparison">
-            Show comparison sidebar
-          </label>
-          <div className="field__hint">
-            Ranks every instructor on the results page, best rating first. Appears only when a
-            search returns two or more instructors.
-          </div>
-        </div>
-      </div>
-
-      <div className="field">
-        <input
           id="showFilterBar"
           type="checkbox"
           checked={settings.showFilterBar}

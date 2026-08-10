@@ -165,7 +165,6 @@ export interface PageDiagnostics {
 
 export interface ExtensionSettings {
   autoDetect: boolean;
-  showComparison: boolean;
   /** Show the controls that hide sections below a rating threshold. */
   showFilterBar: boolean;
   cacheTTLDays: number;

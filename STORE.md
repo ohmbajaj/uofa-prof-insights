@@ -95,7 +95,7 @@ WHAT IT DOES
 • Puts a rating badge next to every instructor in class search
 • Click a badge for difficulty, would-take-again, top tags and per-course ratings
 • Filter sections by instructor rating — hide anything below 3.5, say
-• Ranks every instructor on the results page, best first
+• Marks the best-rated instructor on the page, and ranks the rest
 • Search any professor from the toolbar popup
 
 WHY NOT JUST SEARCH RATEMYPROFESSORS YOURSELF
@@ -178,7 +178,7 @@ A public Gist also works if you would rather keep the repository private.
 
 1. Register as a developer, pay the one-time $5 (Google account, one time ever)
 2. Bump `version` in **both** `manifest.json` and `package.json`
-3. `npm run check` — typecheck, lint, format, 474 tests
+3. `npm run check` — typecheck, lint, format, 424 tests
 4. `npm run verify:extension` — side-loads the build and confirms badges appear
 5. `npm run package` → `release/uofa-prof-insights-<version>.zip`
 6. Upload, paste the copy above, attach screenshots, set the privacy policy URL

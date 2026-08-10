@@ -190,12 +190,12 @@ describe('handleMessage', () => {
   it('answers SAVE_SETTINGS with the merged result', async () => {
     const reply = await handleMessage({
       type: 'SAVE_SETTINGS',
-      settings: { showComparison: false },
+      settings: { showFilterBar: false },
     });
 
     expect(reply).toMatchObject({
       type: 'SETTINGS',
-      settings: { showComparison: false, autoDetect: true },
+      settings: { showFilterBar: false, autoDetect: true },
     });
   });
 

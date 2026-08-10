@@ -12,7 +12,7 @@ things a browser tab open on RateMyProfessors structurally cannot do: rank every
 instructor on the page against each other, break a rating down by course, and
 hide sections below a threshold.
 
-[Install](INSTALL.md) · [Privacy](PRIVACY.md) · 474 tests · verified as a side-loaded extension
+[Install](INSTALL.md) · [Privacy](PRIVACY.md) · 424 tests · verified as a side-loaded extension
 
 > **Distributed by zip, not through the Chrome Web Store.** The extension reads
 > RateMyProfessors through a private API and carries the university's name, so a
@@ -20,10 +20,11 @@ hide sections below a threshold.
 > audience of classmates. [STORE.md](STORE.md) keeps the prepared listing and the
 > reasoning.
 
-![Rating badges, detail card and comparison sidebar in UAccess class search](docs/screenshots/uaccess.png)
+![Rating badges, detail card and rating filter in UAccess class search](docs/screenshots/uaccess.png)
 
 _Badges sit inside the Instructor column; the card breaks the rating down by
-course and discloses duplicate profiles; the sidebar ranks the page._
+course and discloses duplicate profiles; the filter hides sections below a
+rating you choose._
 
 <table>
 <tr>
@@ -56,7 +57,7 @@ Beyond correctness, three things only work from inside the results page:
 
 ## Status
 
-**Feature complete, verified in Chrome, and packaged.** 371 tests pass, the
+**Feature complete, verified in Chrome, and packaged.** 424 tests pass, the
 built bundle is exercised in real headless Chrome (see
 [Browser verification](#browser-verification)), and `npm run package` produces a
 Chrome Web Store-ready zip. The remaining unknown is live UAccess markup, which
@@ -70,8 +71,8 @@ detector-classic.ts ─┐
 detector-new.ts    ──┘   (MutationObserver,  (dedupes,       │  click
                           250ms debounce)     prunes stale)  └─> Card <upi-card>
                                      │
-                                     └─> sidebar-controller ──> <upi-sidebar>
-                                                                (2+ instructors)
+                                     └─> filter-controller ──> <upi-filter>
+                                                               (2+ sections)
        index.ts ──chrome.runtime.sendMessage──> service-worker ──> cache ──> rmp-api
        popup/  ──────────────────────────────────────┘
 ```
@@ -86,9 +87,6 @@ page is still covered.
 - **Detail card** on badge click: rating, difficulty, would-retake, top tags,
   and a link to the RMP page. One card at a time; closes on Escape, outside
   click, or a second click on the same badge.
-- **Comparison sidebar** ranking every instructor on the results page,
-  best-first. Only appears with two or more instructors, since one has nothing
-  to compare against. Clicking a row scrolls to that badge.
 - **Rating filter** above the results: hide sections whose instructor falls below
   a threshold, with a live count. Co-taught sections survive if any instructor
   passes; "Staff" rows count as unrated.
@@ -97,7 +95,8 @@ page is still covered.
 - **Duplicate-profile disclosure.** Where two RMP profiles look like the same
   person, the better-evidenced one is shown and the others are listed.
 - **Page ranking.** Each badge knows its standing among the rated instructors on
-  the page; the top pick gets a BEST pill.
+  the page: the top pick gets a BEST pill, and every badge's tooltip says where
+  its professor placed.
 - **Popup** with a manual professor search, recently viewed professors, a
   local-only usage tally, and settings.
 - **Retry and refresh.** An errored badge refetches when clicked, and the card's
@@ -157,11 +156,13 @@ so the instructor `<td>` sits one index left of its `<th>`. Walking raw child
 indexes lands on Units and badges every row with "4.000". Column resolution
 accounts for colspan and accepts only `<td>`.
 
-A sixth was caught only by looking at a screenshot: the `position: fixed`
-comparison sidebar **covered the Instructor column** — the column the badges
+A sixth was caught only by looking at a screenshot: a `position: fixed`
+comparison panel **covered the Instructor column** — the column the badges
 attach to — while every overflow assertion passed, because a fixed element
-overlays content instead of extending the page. The sidebar now reserves its
-width by padding the body.
+overlays content instead of extending the page. Reserving room for it by
+narrowing the body fixed that and caused a worse one on the Student Center,
+where the panel covered nothing and the reflow moved the whole page. The panel
+was removed; the ranking it provided now rides on the badges.
 
 ## Commands
 
@@ -248,22 +249,24 @@ built bundle** in **real headless Chrome** against mock UAccess markup, takes
 measurements from the live page, and writes a screenshot to
 `release/verify/uaccess-mock.png`.
 
-24 checks across three surfaces — the injected UAccess page, the popup's Status
+39 checks across three surfaces — the injected UAccess page, the popup's Status
 tab, and its Settings tab. It asserts, among other things, that custom elements
 upgrade, that badges stay inside their table cell, that row heights are
 identical before and after injection, that nothing overflows horizontally, that
-neither the card nor the sidebar covers the instructor column, and that the
-popup renders its stored settings.
+the extension leaves the page's own layout untouched, and that the popup renders
+its stored settings.
 
 Two real bugs came out of looking at that screenshot, both invisible to the
-numeric checks:
+numeric checks — and both in the comparison panel that has since been removed:
 
-- The `position: fixed` sidebar **covered the Instructor column** — the very
+- The `position: fixed` panel **covered the Instructor column** — the very
   column the badges attach to. `horizontalOverflow` was false the whole time,
-  because a fixed element overlays content instead of extending the page. The
-  sidebar now pads the body by its measured width, and a check pins it.
-- The sidebar's name and subtitle **ran together on one line**, because the
-  wrapper was an inline `<span>`. Now a flex column.
+  because a fixed element overlays content instead of extending the page.
+- Its name and subtitle **ran together on one line**, because the wrapper was an
+  inline `<span>`.
+
+The first of those is why a check now asserts the page's padding and scroll
+width are exactly what they were before injection.
 
 ### Still needs a human
 
@@ -293,7 +296,5 @@ aggregate analytics. Full policy: [PRIVACY.md](PRIVACY.md).
   TypeScript 7 (TS 6 only shipped as a beta, so downgrading isn't an option).
   `npm run typecheck` covers the ground in the meantime. See
   [eslint.config.js](eslint.config.js).
-- **Sidebar dismissal is page-scoped**, not persisted. Closing it lasts until
-  the next page load; the permanent switch is the `showComparison` setting.
 - A deprecation warning from `@crxjs/vite-plugin` about `server.hmr.*` appears
   during builds. It originates inside the plugin, not this config.

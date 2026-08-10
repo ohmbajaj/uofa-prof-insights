@@ -1,5 +1,4 @@
 import { UPICard } from './components/PopupCard';
-import { SIDEBAR_TAG } from './components/ComparisonSidebar';
 import type { ProfessorData } from '@shared/types';
 
 /**
@@ -27,11 +26,9 @@ export function computePosition(
   viewportWidth: number,
   scrollX: number,
   scrollY: number,
-  /** Width of anything pinned to the right edge — i.e. the comparison sidebar. */
-  rightInset = 0,
 ): { left: number; top: number } {
   const preferred = anchor.left + scrollX;
-  const maxLeft = scrollX + viewportWidth - rightInset - CARD_WIDTH - MARGIN;
+  const maxLeft = scrollX + viewportWidth - CARD_WIDTH - MARGIN;
   const minLeft = scrollX + MARGIN;
 
   return {
@@ -102,16 +99,11 @@ export function openCardFor(
   card.courseCode = courseCode;
   card.data = data;
 
-  // Keep the card clear of the comparison sidebar when it is open.
-  const panel = doc.querySelector(SIDEBAR_TAG);
-  const rightInset = panel ? panel.getBoundingClientRect().width : 0;
-
   const { left, top } = computePosition(
     anchor.getBoundingClientRect(),
     win.innerWidth,
     win.scrollX,
     win.scrollY,
-    rightInset,
   );
   card.style.left = `${left}px`;
   card.style.top = `${top}px`;

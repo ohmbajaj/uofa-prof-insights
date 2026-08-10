@@ -89,7 +89,7 @@ function isInterfaceText(text: string): boolean {
 
 /** Regions that never contain a section's instructor. */
 const EXCLUDED_ANCESTORS =
-  'nav, header, footer, [role="navigation"], [role="banner"], upi-sidebar, upi-card, upi-filter';
+  'nav, header, footer, [role="navigation"], [role="banner"], upi-card, upi-filter';
 
 /**
  * How far up to look for a course code before giving up.

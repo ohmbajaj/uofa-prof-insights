@@ -148,8 +148,6 @@ async function loadContentScript(): Promise<void> {
   injector.resetInjectorState();
   const cards = await import('@content/card-controller');
   cards.resetCardState();
-  const sidebar = await import('@content/sidebar-controller');
-  sidebar.resetSidebarState();
   badgeModule = await import('@content/components/Badge');
   await import('@content/index');
   // main() is async now (it loads settings first).
@@ -437,7 +435,14 @@ describe('content script — settings', () => {
     expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'LOOKUP_PROFESSOR' }));
   });
 
-  it('shows the comparison sidebar for two or more instructors', async () => {
+  /**
+   * There used to be a panel pinned to the right edge ranking every instructor
+   * on the page. It was removed: on a class schedule it ranks sections you are
+   * already enrolled in and cannot change, and most of its rows read "No RMP
+   * match", so it spent a third of the screen saying nothing. The badges
+   * already carry the ranking via the BEST pill.
+   */
+  it('never pins a panel to the edge of the page', async () => {
     document.body.innerHTML = `
       <table id="CLASS_SRCH_WRK2_STRM$scroll$0">
         <tr><th id="CLASS_SRCH_WRK2_STRM_INSTRUCTOR$0">Instructor</th></tr>
@@ -452,42 +457,9 @@ describe('content script — settings', () => {
     await loadContentScript();
     await flush();
 
-    expect(document.querySelectorAll('upi-sidebar')).toHaveLength(1);
-  });
-
-  it('hides the sidebar for a single instructor', async () => {
-    document.body.innerHTML = CLASSIC_HTML;
-    installRuntime(async (m) => ({
-      type: 'PROFESSOR_RESULT',
-      name: (m as { name: string }).name,
-      data: professor(),
-    }));
-
-    await loadContentScript();
-    await flush();
-
     expect(document.querySelectorAll('upi-sidebar')).toHaveLength(0);
-  });
-
-  it('hides the sidebar when showComparison is off', async () => {
-    document.body.innerHTML = `
-      <table id="CLASS_SRCH_WRK2_STRM$scroll$0">
-        <tr><th id="CLASS_SRCH_WRK2_STRM_INSTRUCTOR$0">Instructor</th></tr>
-        <tr><td id="MTG_INSTR$0">Mercer, Richard</td></tr>
-        <tr><td id="MTG_INSTR$1">Debray, Saumya</td></tr>
-      </table>`;
-    installRuntime(
-      async (m) => {
-        const { name } = m as { name: string };
-        return { type: 'PROFESSOR_RESULT', name, data: professor({ name }) };
-      },
-      { showComparison: false },
-    );
-
-    await loadContentScript();
-    await flush();
-
-    expect(document.querySelectorAll('upi-sidebar')).toHaveLength(0);
+    // And nothing narrowed the page to make room for one.
+    expect(document.body.style.paddingRight).toBe('');
   });
 });
 

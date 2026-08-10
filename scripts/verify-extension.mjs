@@ -83,10 +83,9 @@ const PAGE = `<!doctype html>
 
   /*
    * The Student Center's header and hero banner are sized against the viewport,
-   * not their parent. That is what makes reserving space for the sidebar
-   * dangerous there: narrowing the body does not narrow these, so the document
-   * ends up wider than the window and the whole page scrolls sideways. Without
-   * a viewport-sized element here the harness cannot reproduce the bug.
+   * not their parent, so they do not shrink when something narrows the body.
+   * Kept here as a tripwire: anything that reflows the page around a pinned
+   * element shows up as sideways scrolling on a layout shaped like this one.
    */
   .bleed { width: 100vw; height: 34px; background: #ab0532; }
   .hero  { width: 100vw; height: 60px; background: #0c234b; }
@@ -231,8 +230,7 @@ const PAGE = `<!doctype html>
       if (badges.length > 0 && resolved.length === badges.length) break;
     }
 
-    // The sidebar mounts only after lookups settle, so measure the page here
-    // rather than inside the polling loop above.
+    // Measured after the lookups settle, so any late mutation is included.
     await sleep(700);
     const root = document.documentElement;
     report.layout = {
@@ -242,7 +240,7 @@ const PAGE = `<!doctype html>
       horizontalOverflow: root.scrollWidth - root.clientWidth > 2,
       bodyPaddingRight: document.body.style.paddingRight || '(none)',
     };
-    report.sidebar = box('upi-sidebar');
+    report.panelsPinnedToEdge = document.querySelectorAll('upi-sidebar').length;
 
     // A badge that opens nothing is the same failure as a badge that never
     // appeared, so drive the click the way a student would.
@@ -484,18 +482,20 @@ const checks = [
   ['an instructor from each layout is badged', report.badges === 2],
   ['every surviving badge shows a real rating', report.rendered.every((t) => /★ \d/.test(t))],
 
-  // The comparison panel and the detail card were the two components still
-  // registering themselves as custom elements. Both were inert in the isolated
-  // world: present in the DOM, zero pixels wide, no shadow root.
-  ['comparison sidebar rendered', report.sidebar.shadow && report.sidebar.width > 0],
+  /*
+   * The detail card used to register itself as a custom element, which is
+   * impossible in the isolated world: it was present in the DOM, zero pixels
+   * wide, with no shadow root, so clicking a badge did nothing at all.
+   */
   ['clicking a badge opens the detail card', report.card.shadow && report.card.width > 0],
   ['the card shows the professor it was opened for', report.cardText.includes('Amy Graham')],
 
   /*
-   * The reported bug. Every instructor on this page sits mid-card, nowhere near
-   * the right edge, so the panel covers nothing and the page must be left
-   * exactly as it was found — no body padding, no reflow, no sideways scroll.
+   * The page must look exactly as it did before the extension touched it. The
+   * comparison panel was pinned to the right edge and the body was narrowed to
+   * make room for it; both are gone, and nothing else may take their place.
    */
+  ['no panel pinned to the page edge', report.panelsPinnedToEdge === 0],
   ['the extension did not reflow the page', report.layout.bodyPaddingRight === '(none)'],
   ['the extension did not make the page scroll sideways', !report.layout.horizontalOverflow],
 ];

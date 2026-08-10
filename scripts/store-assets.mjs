@@ -69,7 +69,7 @@ const CHROME_STUB = `
   window.chrome = {
     runtime: {
       sendMessage: (m) => new Promise((resolve) => setTimeout(() => {
-        if (m.type === 'GET_SETTINGS') return resolve({ type: 'SETTINGS', settings: { autoDetect: true, showComparison: true, showFilterBar: true, cacheTTLDays: 7 } });
+        if (m.type === 'GET_SETTINGS') return resolve({ type: 'SETTINGS', settings: { autoDetect: true, showFilterBar: true, cacheTTLDays: 7 } });
         if (m.type === 'GET_CACHE_STATS') return resolve({ type: 'CACHE_STATS', stats: { count: 37, oldestAge: 3 * 86400000 } });
         if (m.type === 'GET_USAGE' || m.type === 'CLEAR_USAGE' || m.type === 'RECORD_VIEW' || m.type === 'BADGES_SHOWN') return resolve({
           type: 'USAGE',

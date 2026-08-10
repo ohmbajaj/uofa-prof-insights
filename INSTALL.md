@@ -71,11 +71,9 @@ and sections taught by lower-rated instructors are hidden, with a count of
 what's left. A section co-taught by someone good stays visible. Untick **Keep
 unrated** to also hide "Staff" sections and instructors with no RMP page.
 
-**The comparison sidebar** appears on the right when a search returns two or
-more instructors, ranking them best-first. Click any row to jump to that
-section. Close it with the × — it stays closed until your next page load.
-
-**A BEST pill** marks the highest-rated instructor on the page.
+**A BEST pill** marks the highest-rated instructor on the page. Hover any badge
+and its tooltip says where that professor ranks among the rated instructors in
+front of you.
 
 **The toolbar popup** has a search box for looking up any professor directly,
 plus your cache stats and settings.
@@ -87,7 +85,6 @@ Click the extension icon, then the **Settings** tab:
 | Setting                        | What it does                                                           |
 | ------------------------------ | ---------------------------------------------------------------------- |
 | **Show ratings automatically** | Off leaves UAccess completely untouched; use the popup search instead. |
-| **Show comparison sidebar**    | Off hides the right-hand panel permanently.                            |
 | **Show rating filter**         | Off hides the filter controls above the results.                       |
 | **Keep ratings for**           | Days before a rating is re-fetched. Default 7, range 1–90.             |
 

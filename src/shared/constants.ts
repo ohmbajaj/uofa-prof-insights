@@ -35,7 +35,6 @@ export const MAX_RECENT_PROFESSORS = 8;
 /** Lives here rather than in background/ so content and popup can read it too. */
 export const DEFAULT_SETTINGS = {
   autoDetect: true,
-  showComparison: true,
   showFilterBar: true,
   cacheTTLDays: DEFAULT_CACHE_TTL_DAYS,
 } as const;
@@ -43,9 +42,6 @@ export const DEFAULT_SETTINGS = {
 /** Bounds for the cacheTTLDays setting, enforced in the popup and on save. */
 export const MIN_CACHE_TTL_DAYS = 1;
 export const MAX_CACHE_TTL_DAYS = 90;
-
-/** Minimum number of instructors before the comparison sidebar is worth showing. */
-export const MIN_COMPARISON_ROWS = 2;
 
 /** Caps on the detail card's supplementary lists, to keep it a card and not a page. */
 export const MAX_COURSES_SHOWN = 4;

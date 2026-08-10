@@ -75,7 +75,7 @@ export default function Status() {
         <li>Rating badge beside every instructor in class search</li>
         <li>Click a badge for difficulty, retake rate and per-course ratings</li>
         <li>Filter sections by instructor rating</li>
-        <li>Sidebar ranking every instructor on the page</li>
+        <li>A BEST pill on the top-rated instructor of the page</li>
       </ul>
 
       {recents.length > 0 && (
