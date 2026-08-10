@@ -178,7 +178,7 @@ A public Gist also works if you would rather keep the repository private.
 
 1. Register as a developer, pay the one-time $5 (Google account, one time ever)
 2. Bump `version` in **both** `manifest.json` and `package.json`
-3. `npm run check` — typecheck, lint, format, 461 tests
+3. `npm run check` — typecheck, lint, format, 474 tests
 4. `npm run verify:extension` — side-loads the build and confirms badges appear
 5. `npm run package` → `release/uofa-prof-insights-<version>.zip`
 6. Upload, paste the copy above, attach screenshots, set the privacy policy URL

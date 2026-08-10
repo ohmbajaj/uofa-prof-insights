@@ -12,7 +12,7 @@ things a browser tab open on RateMyProfessors structurally cannot do: rank every
 instructor on the page against each other, break a rating down by course, and
 hide sections below a threshold.
 
-[Install](INSTALL.md) · [Privacy](PRIVACY.md) · 461 tests · verified as a side-loaded extension
+[Install](INSTALL.md) · [Privacy](PRIVACY.md) · 474 tests · verified as a side-loaded extension
 
 > **Distributed by zip, not through the Chrome Web Store.** The extension reads
 > RateMyProfessors through a private API and carries the university's name, so a

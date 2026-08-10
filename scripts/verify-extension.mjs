@@ -75,13 +75,26 @@ const PAGE = `<!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>UAccess mock (extension test)</title>
 <style>
-  body { font-family: Arial, sans-serif; margin: 16px; }
+  body { font-family: Arial, sans-serif; margin: 0; }
+  .content { padding: 16px; }
   table { border-collapse: collapse; width: 100%; }
   th { background: #4a6a8a; color: #fff; text-align: left; padding: 6px 8px; }
   td { border-bottom: 1px solid #ddd; padding: 6px 8px; }
+
+  /*
+   * The Student Center's header and hero banner are sized against the viewport,
+   * not their parent. That is what makes reserving space for the sidebar
+   * dangerous there: narrowing the body does not narrow these, so the document
+   * ends up wider than the window and the whole page scrolls sideways. Without
+   * a viewport-sized element here the harness cannot reproduce the bug.
+   */
+  .bleed { width: 100vw; height: 34px; background: #ab0532; }
+  .hero  { width: 100vw; height: 60px; background: #0c234b; }
 </style>
 </head>
 <body>
+<div class="bleed"></div>
+<div class="hero"></div>
 <!--
   Two real studentcenter.arizona.edu layouts, rebuilt from screenshots and
   nested as deeply as the SPA nests them. Deliberately no classic results
@@ -166,20 +179,46 @@ const PAGE = `<!doctype html>
   window.addEventListener('error', (e) => log.push('window.error: ' + e.message));
   window.addEventListener('unhandledrejection', (e) => log.push('rejection: ' + String(e.reason)));
 
+  /*
+   * The pill's own text, NOT shadowRoot.textContent.
+   *
+   * The shadow root also contains the <style> element, whose CSS is full of
+   * digits — so a "has this resolved yet" test against the whole root matched
+   * on the very first poll, every time. This harness was reporting three
+   * resolved badges roughly 400ms after load and then clicking one that was
+   * still showing its loading skeleton.
+   */
+  const pillText = (b) => {
+    const pill = b.shadowRoot && b.shadowRoot.querySelector('.badge');
+    return pill ? pill.textContent : '';
+  };
+
+  // Width of an element that actually rendered, or 0 if it is inert. An
+  // unregistered custom element has no shadow root and no box.
+  const box = (selector) => {
+    const el = document.querySelector(selector);
+    if (!el) return { present: false, shadow: false, width: 0 };
+    return {
+      present: true,
+      shadow: el.shadowRoot !== null,
+      width: Math.round(el.getBoundingClientRect().width),
+    };
+  };
+
   (async () => {
     let report = null;
     for (let attempt = 0; attempt < 24; attempt++) {
       await sleep(500);
       const badges = [...document.querySelectorAll('upi-badge')];
       const resolved = badges.filter((b) => {
-        const text = b.shadowRoot ? b.shadowRoot.textContent : '';
+        const text = pillText(b);
         return /\\d/.test(text) || text.includes('N/A');
       });
       report = {
         badges: badges.length,
         upgraded: badges.filter((b) => b.shadowRoot !== null).length,
         resolved: resolved.length,
-        rendered: badges.map((b) => (b.shadowRoot ? b.shadowRoot.textContent : '').replace(/\\s+/g, ' ').trim().slice(-24)),
+        rendered: badges.map((b) => pillText(b).replace(/\\s+/g, ' ').trim()),
         anchors: badges.map((b) => (b.parentElement ? b.parentElement.id || b.parentElement.className || b.parentElement.tagName : '?')),
         log: log.slice(0, 25),
         loader: document.documentElement.getAttribute('data-upi-loader'),
@@ -191,6 +230,33 @@ const PAGE = `<!doctype html>
       // Stop early once every badge has finished loading.
       if (badges.length > 0 && resolved.length === badges.length) break;
     }
+
+    // The sidebar mounts only after lookups settle, so measure the page here
+    // rather than inside the polling loop above.
+    await sleep(700);
+    const root = document.documentElement;
+    report.layout = {
+      scrollWidth: root.scrollWidth,
+      clientWidth: root.clientWidth,
+      // The symptom the user reported: the whole page scrolling sideways.
+      horizontalOverflow: root.scrollWidth - root.clientWidth > 2,
+      bodyPaddingRight: document.body.style.paddingRight || '(none)',
+    };
+    report.sidebar = box('upi-sidebar');
+
+    // A badge that opens nothing is the same failure as a badge that never
+    // appeared, so drive the click the way a student would.
+    const first = document.querySelector('upi-badge');
+    if (first) first.click();
+    await sleep(400);
+    report.card = box('upi-card');
+    // Scoped to the card body for the same reason as pillText: the shadow
+    // root's own textContent is mostly the stylesheet.
+    report.cardText = (() => {
+      const body = document.querySelector('upi-card')?.shadowRoot?.querySelector('.card');
+      return body ? body.textContent.replace(/\\s+/g, ' ').trim().slice(0, 90) : '';
+    })();
+
     document.getElementById('out').textContent = JSON.stringify(report, null, 2);
     await fetch('/report', { method: 'POST', body: JSON.stringify(report) });
   })();
@@ -409,9 +475,29 @@ const checks = [
   ['content script injected badges', report.badges > 0],
   ['every badge has a shadow root', report.badges > 0 && report.upgraded === report.badges],
   ['badges resolved against the live API', report.resolved === report.badges && report.badges > 0],
-  // Amy Graham from class search, plus Thamvichai and Liu from class schedule.
-  ['every instructor on both layouts badged', report.badges === 3],
-  ['class-search instructor badged', report.rendered.length >= 1],
+  /*
+   * Amy Graham from class search and Ratchaneekorn Thamvichai from class
+   * schedule — one from each layout. The third name the generic detector finds,
+   * Na Liu, has no RateMyProfessors profile, and a speculative name that
+   * matches nobody is withdrawn rather than left printing "N/A" on the page.
+   */
+  ['an instructor from each layout is badged', report.badges === 2],
+  ['every surviving badge shows a real rating', report.rendered.every((t) => /★ \d/.test(t))],
+
+  // The comparison panel and the detail card were the two components still
+  // registering themselves as custom elements. Both were inert in the isolated
+  // world: present in the DOM, zero pixels wide, no shadow root.
+  ['comparison sidebar rendered', report.sidebar.shadow && report.sidebar.width > 0],
+  ['clicking a badge opens the detail card', report.card.shadow && report.card.width > 0],
+  ['the card shows the professor it was opened for', report.cardText.includes('Amy Graham')],
+
+  /*
+   * The reported bug. Every instructor on this page sits mid-card, nowhere near
+   * the right edge, so the panel covers nothing and the page must be left
+   * exactly as it was found — no body padding, no reflow, no sideways scroll.
+   */
+  ['the extension did not reflow the page', report.layout.bodyPaddingRight === '(none)'],
+  ['the extension did not make the page scroll sideways', !report.layout.horizontalOverflow],
 ];
 
 console.log('');

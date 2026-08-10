@@ -152,20 +152,27 @@ export function sortRows(rows: ComparisonRow[]): ComparisonRow[] {
  *
  * Shown only when the `showComparison` setting is on and at least two
  * professors were detected — a single-section search has nothing to compare.
+ *
+ * A plain element with a shadow root rather than a custom element; see Badge.ts
+ * for why registration is impossible in a content script's isolated world.
  */
-export class UPISidebar extends HTMLElement {
+export class UPISidebar {
   static readonly styles = STYLES;
 
+  /** The element to insert into the page. */
+  readonly el: HTMLElement;
+
+  #doc: Document;
   #shadow: ShadowRoot;
   #list: HTMLElement;
   #countLabel: HTMLElement;
   #rows: ComparisonRow[] = [];
   #loading = true;
 
-  constructor() {
-    super();
-    const doc = this.ownerDocument;
-    this.#shadow = this.attachShadow({ mode: 'open' });
+  constructor(doc: Document = document) {
+    this.#doc = doc;
+    this.el = doc.createElement(SIDEBAR_TAG);
+    this.#shadow = this.el.attachShadow({ mode: 'open' });
 
     const style = doc.createElement('style');
     style.textContent = UPISidebar.styles;
@@ -187,8 +194,10 @@ export class UPISidebar extends HTMLElement {
     close.addEventListener('click', () => {
       // Announce before detaching, so the controller can remember the choice
       // and stop remounting on every subsequent detection pass.
-      this.dispatchEvent(new CustomEvent(SIDEBAR_DISMISS_EVENT, { bubbles: true, composed: true }));
-      this.remove();
+      this.el.dispatchEvent(
+        new CustomEvent(SIDEBAR_DISMISS_EVENT, { bubbles: true, composed: true }),
+      );
+      this.el.remove();
     });
 
     header.append(heading, close);
@@ -197,14 +206,36 @@ export class UPISidebar extends HTMLElement {
     this.#list.className = 'list';
 
     this.#shadow.append(style, header, this.#list);
+
+    this.el.setAttribute('role', 'complementary');
+    this.el.setAttribute('aria-label', 'Instructor rating comparison');
+
+    REGISTRY.set(this.el, this);
+    this.#render();
   }
 
-  connectedCallback(): void {
-    if (!this.hasAttribute('role')) this.setAttribute('role', 'complementary');
-    if (!this.hasAttribute('aria-label')) {
-      this.setAttribute('aria-label', 'Instructor rating comparison');
-    }
-    this.#render();
+  get isConnected(): boolean {
+    return this.el.isConnected;
+  }
+
+  get shadowRoot(): ShadowRoot {
+    return this.#shadow;
+  }
+
+  remove(): void {
+    this.el.remove();
+  }
+
+  addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
+    this.el.addEventListener(type, listener);
+  }
+
+  getBoundingClientRect(): DOMRect {
+    return this.el.getBoundingClientRect();
+  }
+
+  getAttribute(name: string): string | null {
+    return this.el.getAttribute(name);
   }
 
   get rows(): ComparisonRow[] {
@@ -227,7 +258,7 @@ export class UPISidebar extends HTMLElement {
   }
 
   #render(): void {
-    const doc = this.ownerDocument;
+    const doc = this.#doc;
     this.#list.replaceChildren();
 
     if (this.#loading) {
@@ -253,7 +284,7 @@ export class UPISidebar extends HTMLElement {
   }
 
   #renderRow(row: ComparisonRow): HTMLElement {
-    const doc = this.ownerDocument;
+    const doc = this.#doc;
     const item = doc.createElement('li');
 
     const button = doc.createElement('button');
@@ -277,7 +308,7 @@ export class UPISidebar extends HTMLElement {
 
     button.append(score, meta);
     button.addEventListener('click', () => {
-      this.dispatchEvent(
+      this.el.dispatchEvent(
         new CustomEvent<ComparisonRow>(SIDEBAR_SELECT_EVENT, {
           detail: row,
           bubbles: true,
@@ -291,13 +322,11 @@ export class UPISidebar extends HTMLElement {
   }
 }
 
-export function defineSidebar(win: Window & typeof globalThis = window): void {
-  // `customElements` is null inside a content script's isolated world.
-  // Registering is impossible there; throwing would kill the whole script.
-  if (!win.customElements) return;
-  if (!win.customElements.get(SIDEBAR_TAG)) {
-    win.customElements.define(SIDEBAR_TAG, UPISidebar);
-  }
-}
+/** Host element -> sidebar, so code holding only a DOM node can reach its state. */
+const REGISTRY = new WeakMap<HTMLElement, UPISidebar>();
 
-defineSidebar();
+/** The sidebar that owns `element`, if it is ours. */
+export function sidebarFromElement(element: Element | null | undefined): UPISidebar | null {
+  if (!element) return null;
+  return REGISTRY.get(element as HTMLElement) ?? null;
+}

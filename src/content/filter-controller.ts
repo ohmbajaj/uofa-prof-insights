@@ -1,10 +1,4 @@
-import {
-  DEFAULT_FILTER,
-  FILTER_CHANGE_EVENT,
-  FILTER_TAG,
-  UPIFilterBar,
-  defineFilterBar,
-} from './components/FilterBar';
+import { DEFAULT_FILTER, FILTER_CHANGE_EVENT, UPIFilterBar } from './components/FilterBar';
 import type { FilterState } from './components/FilterBar';
 import type { DetectedProfessor } from './detector';
 import type { ProfessorData } from '@shared/types';
@@ -161,11 +155,7 @@ export function syncFilterBar(
   latest = input;
 
   if (!bar || !bar.isConnected) {
-    const win = doc.defaultView;
-    if (!win) return null;
-    defineFilterBar(win as Window & typeof globalThis);
-
-    bar = doc.createElement(FILTER_TAG) as UPIFilterBar;
+    bar = new UPIFilterBar(doc);
     bar.state = state;
     bar.addEventListener(FILTER_CHANGE_EVENT, (event) => {
       state = (event as CustomEvent<FilterState>).detail;
@@ -179,7 +169,7 @@ export function syncFilterBar(
     // Above the results container, so it reads as part of the search UI.
     const first = [...sections][0] as HTMLElement;
     const anchor = first.closest('table') ?? first.closest('.resultPanel') ?? first;
-    anchor.parentElement?.insertBefore(bar, anchor);
+    anchor.parentElement?.insertBefore(bar.el, anchor);
   }
 
   recount(input);

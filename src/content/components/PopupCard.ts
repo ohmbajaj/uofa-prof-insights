@@ -196,10 +196,19 @@ export function formatAge(cachedAt: number, now = Date.now()): string {
  *
  * Positioned absolutely in the page's own coordinate space rather than
  * `position: fixed`, so it stays anchored to its badge while UAccess scrolls.
+ *
+ * Deliberately not a custom element, for the same reason as `UPIBadge`:
+ * `window.customElements` is `null` in a content script's isolated world, so
+ * the class could never be registered there and `createElement('upi-card')`
+ * produced an inert, invisible element. See Badge.ts for the full story.
  */
-export class UPICard extends HTMLElement {
+export class UPICard {
   static readonly styles = STYLES;
 
+  /** The element to insert into the page. */
+  readonly el: HTMLElement;
+
+  #doc: Document;
   #shadow: ShadowRoot;
   #body: HTMLElement;
   #data: ProfessorData | null = null;
@@ -207,10 +216,10 @@ export class UPICard extends HTMLElement {
   /** Course being browsed in UAccess, so its rating can be pinned to the top. */
   #courseCode: string | null = null;
 
-  constructor() {
-    super();
-    const doc = this.ownerDocument;
-    this.#shadow = this.attachShadow({ mode: 'open' });
+  constructor(doc: Document = document) {
+    this.#doc = doc;
+    this.el = doc.createElement(CARD_TAG);
+    this.#shadow = this.el.attachShadow({ mode: 'open' });
 
     const style = doc.createElement('style');
     style.textContent = UPICard.styles;
@@ -219,11 +228,42 @@ export class UPICard extends HTMLElement {
     this.#body.className = 'card';
 
     this.#shadow.append(style, this.#body);
+    this.el.setAttribute('role', 'dialog');
+
+    REGISTRY.set(this.el, this);
   }
 
-  connectedCallback(): void {
-    if (!this.hasAttribute('role')) this.setAttribute('role', 'dialog');
-    this.#render();
+  /** Mirrors the host element, so callers holding a card can treat it as one. */
+  get dataset(): DOMStringMap {
+    return this.el.dataset;
+  }
+
+  get style(): CSSStyleDeclaration {
+    return this.el.style;
+  }
+
+  get isConnected(): boolean {
+    return this.el.isConnected;
+  }
+
+  get shadowRoot(): ShadowRoot {
+    return this.#shadow;
+  }
+
+  contains(node: Node | null): boolean {
+    return this.el.contains(node);
+  }
+
+  remove(): void {
+    this.el.remove();
+  }
+
+  addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
+    this.el.addEventListener(type, listener);
+  }
+
+  getAttribute(name: string): string | null {
+    return this.el.getAttribute(name);
   }
 
   get data(): ProfessorData | null {
@@ -257,17 +297,17 @@ export class UPICard extends HTMLElement {
   }
 
   close(): void {
-    this.remove();
+    this.el.remove();
   }
 
   #render(): void {
-    const doc = this.ownerDocument;
+    const doc = this.#doc;
     const data = this.#data;
     this.#body.replaceChildren();
     if (!data) return;
 
-    this.setAttribute('aria-label', `RateMyProfessor details for ${data.name}`);
-    this.style.setProperty('--upi-rating-color', getRatingColor(data.overallRating));
+    this.el.setAttribute('aria-label', `RateMyProfessor details for ${data.name}`);
+    this.el.style.setProperty('--upi-rating-color', getRatingColor(data.overallRating));
 
     const close = doc.createElement('button');
     close.className = 'close';
@@ -343,7 +383,7 @@ export class UPICard extends HTMLElement {
     refresh.addEventListener('click', (event) => {
       event.stopPropagation();
       this.busy = true;
-      this.dispatchEvent(
+      this.el.dispatchEvent(
         new CustomEvent<ProfessorData>(CARD_REFRESH_EVENT, {
           detail: data,
           bubbles: true,
@@ -370,7 +410,7 @@ export class UPICard extends HTMLElement {
     // taking the whole card down with it.
     const courseRatings = data.courseRatings ?? [];
     if (courseRatings.length === 0) return;
-    const doc = this.ownerDocument;
+    const doc = this.#doc;
 
     const current = this.#courseCode ? normalizeCourseCode(this.#courseCode) : null;
     const ordered = [...courseRatings].sort((a, b) => {
@@ -452,7 +492,7 @@ export class UPICard extends HTMLElement {
     }
     if (facts.length === 0) return;
 
-    const doc = this.ownerDocument;
+    const doc = this.#doc;
     const section = doc.createElement('div');
     section.className = 'section';
 
@@ -483,7 +523,7 @@ export class UPICard extends HTMLElement {
     const phrases = data.reviewInsights?.phrases ?? [];
     if (phrases.length === 0) return;
 
-    const doc = this.ownerDocument;
+    const doc = this.#doc;
     const section = doc.createElement('div');
     section.className = 'section';
 
@@ -513,7 +553,7 @@ export class UPICard extends HTMLElement {
   #renderAlternates(data: ProfessorData): void {
     const alternates = data.alternateProfiles ?? [];
     if (alternates.length === 0) return;
-    const doc = this.ownerDocument;
+    const doc = this.#doc;
 
     const section = doc.createElement('div');
     section.className = 'section';
@@ -545,7 +585,7 @@ export class UPICard extends HTMLElement {
   }
 
   #stat(value: string, label: string, primary = false): HTMLElement {
-    const doc = this.ownerDocument;
+    const doc = this.#doc;
     const wrapper = doc.createElement('div');
     wrapper.className = primary ? 'stat primary' : 'stat';
 
@@ -562,13 +602,11 @@ export class UPICard extends HTMLElement {
   }
 }
 
-export function defineCard(win: Window & typeof globalThis = window): void {
-  // `customElements` is null inside a content script's isolated world.
-  // Registering is impossible there; throwing would kill the whole script.
-  if (!win.customElements) return;
-  if (!win.customElements.get(CARD_TAG)) {
-    win.customElements.define(CARD_TAG, UPICard);
-  }
-}
+/** Host element -> card, so code holding only a DOM node can reach its state. */
+const REGISTRY = new WeakMap<HTMLElement, UPICard>();
 
-defineCard();
+/** The card that owns `element`, if it is one of ours. */
+export function cardFromElement(element: Element | null | undefined): UPICard | null {
+  if (!element) return null;
+  return REGISTRY.get(element as HTMLElement) ?? null;
+}

@@ -1,4 +1,4 @@
-import { CARD_TAG, UPICard, defineCard } from './components/PopupCard';
+import { UPICard } from './components/PopupCard';
 import { SIDEBAR_TAG } from './components/ComparisonSidebar';
 import type { ProfessorData } from '@shared/types';
 
@@ -96,9 +96,8 @@ export function openCardFor(
   }
 
   closeCard();
-  defineCard(win as Window & typeof globalThis);
 
-  const card = doc.createElement(CARD_TAG) as UPICard;
+  const card = new UPICard(doc);
   card.dataset.upiAnchorId = anchorId(anchor);
   card.courseCode = courseCode;
   card.data = data;
@@ -117,7 +116,7 @@ export function openCardFor(
   card.style.left = `${left}px`;
   card.style.top = `${top}px`;
 
-  doc.body.appendChild(card);
+  doc.body.appendChild(card.el);
   openCard = card;
   openAnchor = anchor;
 
@@ -125,7 +124,7 @@ export function openCardFor(
     const target = event.target as Node | null;
     // composedPath is needed because the click originates inside a shadow root.
     const path = (event as PointerEvent).composedPath?.() ?? [];
-    if (path.includes(card) || path.includes(anchor)) return;
+    if (path.includes(card.el) || path.includes(anchor)) return;
     if (target && (card.contains(target) || anchor.contains(target))) return;
     closeCard();
   };

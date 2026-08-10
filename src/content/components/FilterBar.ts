@@ -79,10 +79,17 @@ const STYLES = `
  * This is the feature with no equivalent outside UAccess: choosing a section is
  * a filtering problem over the whole results page, and nothing in a separate
  * RateMyProfessors tab can act on the list in front of you.
+ *
+ * A plain element with a shadow root rather than a custom element; see Badge.ts
+ * for why registration is impossible in a content script's isolated world.
  */
-export class UPIFilterBar extends HTMLElement {
+export class UPIFilterBar {
   static readonly styles = STYLES;
 
+  /** The element to insert into the page. */
+  readonly el: HTMLElement;
+
+  #doc: Document;
   #shadow: ShadowRoot;
   #bar: HTMLElement;
   #state: FilterState = { ...DEFAULT_FILTER };
@@ -90,10 +97,10 @@ export class UPIFilterBar extends HTMLElement {
   #total = 0;
   #pending = 0;
 
-  constructor() {
-    super();
-    const doc = this.ownerDocument;
-    this.#shadow = this.attachShadow({ mode: 'open' });
+  constructor(doc: Document = document) {
+    this.#doc = doc;
+    this.el = doc.createElement(FILTER_TAG);
+    this.#shadow = this.el.attachShadow({ mode: 'open' });
 
     const style = doc.createElement('style');
     style.textContent = UPIFilterBar.styles;
@@ -102,14 +109,32 @@ export class UPIFilterBar extends HTMLElement {
     this.#bar.className = 'bar';
 
     this.#shadow.append(style, this.#bar);
+
+    this.el.setAttribute('role', 'group');
+    this.el.setAttribute('aria-label', 'Filter sections by instructor rating');
+
+    REGISTRY.set(this.el, this);
+    this.#render();
   }
 
-  connectedCallback(): void {
-    if (!this.hasAttribute('role')) this.setAttribute('role', 'group');
-    if (!this.hasAttribute('aria-label')) {
-      this.setAttribute('aria-label', 'Filter sections by instructor rating');
-    }
-    this.#render();
+  get isConnected(): boolean {
+    return this.el.isConnected;
+  }
+
+  get shadowRoot(): ShadowRoot {
+    return this.#shadow;
+  }
+
+  remove(): void {
+    this.el.remove();
+  }
+
+  addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
+    this.el.addEventListener(type, listener);
+  }
+
+  getAttribute(name: string): string | null {
+    return this.el.getAttribute(name);
   }
 
   get state(): FilterState {
@@ -130,7 +155,7 @@ export class UPIFilterBar extends HTMLElement {
   }
 
   #emit(): void {
-    this.dispatchEvent(
+    this.el.dispatchEvent(
       new CustomEvent<FilterState>(FILTER_CHANGE_EVENT, {
         detail: this.#state,
         bubbles: true,
@@ -140,7 +165,7 @@ export class UPIFilterBar extends HTMLElement {
   }
 
   #render(): void {
-    const doc = this.ownerDocument;
+    const doc = this.#doc;
     this.#bar.replaceChildren();
 
     const label = doc.createElement('span');
@@ -192,13 +217,11 @@ export class UPIFilterBar extends HTMLElement {
   }
 }
 
-export function defineFilterBar(win: Window & typeof globalThis = window): void {
-  // `customElements` is null inside a content script's isolated world.
-  // Registering is impossible there; throwing would kill the whole script.
-  if (!win.customElements) return;
-  if (!win.customElements.get(FILTER_TAG)) {
-    win.customElements.define(FILTER_TAG, UPIFilterBar);
-  }
-}
+/** Host element -> bar, so code holding only a DOM node can reach its state. */
+const REGISTRY = new WeakMap<HTMLElement, UPIFilterBar>();
 
-defineFilterBar();
+/** The filter bar that owns `element`, if it is ours. */
+export function filterBarFromElement(element: Element | null | undefined): UPIFilterBar | null {
+  if (!element) return null;
+  return REGISTRY.get(element as HTMLElement) ?? null;
+}

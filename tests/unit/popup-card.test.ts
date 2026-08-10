@@ -12,8 +12,8 @@ import { COLOR_GOOD } from '@shared/constants';
 import { makeProfessor } from '../helpers/chrome-mock';
 
 function mount(): UPICard {
-  const card = document.createElement(CARD_TAG) as UPICard;
-  document.body.appendChild(card);
+  const card = new UPICard(document);
+  document.body.appendChild(card.el);
   return card;
 }
 
@@ -29,9 +29,29 @@ beforeEach(() => {
 });
 
 describe('UPICard', () => {
-  it('is registered as a custom element with a shadow root', () => {
-    expect(customElements.get(CARD_TAG)).toBe(UPICard);
-    expect(mount().shadowRoot).not.toBeNull();
+  it('renders into a shadow root on a host with the card tag', () => {
+    const card = mount();
+    expect(card.el.tagName.toLowerCase()).toBe(CARD_TAG);
+    expect(card.shadowRoot).not.toBeNull();
+  });
+
+  /**
+   * The bug this guards against: the card used to register itself as a custom
+   * element at module scope. `window.customElements` is `null` in a content
+   * script's isolated world, so that threw and killed the whole content script
+   * before a single badge was placed. jsdom provides a registry, which is
+   * exactly why the original test suite passed while nothing worked in Chrome.
+   */
+  it('builds with no custom element registry available', () => {
+    const registry = window.customElements;
+    Object.defineProperty(window, 'customElements', { value: null, configurable: true });
+    try {
+      const card = new UPICard(document);
+      card.data = makeProfessor({ name: 'Richard Mercer' });
+      expect(shadowText(card)).toContain('Richard Mercer');
+    } finally {
+      Object.defineProperty(window, 'customElements', { value: registry, configurable: true });
+    }
   });
 
   it('renders nothing until data is set', () => {
@@ -309,7 +329,7 @@ describe('card controller', () => {
 
   it('stays open when the card itself is clicked', () => {
     const card = openCardFor(badge(), makeProfessor());
-    card!.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    card!.el.dispatchEvent(new Event('pointerdown', { bubbles: true }));
 
     expect(document.querySelectorAll(CARD_TAG)).toHaveLength(1);
   });

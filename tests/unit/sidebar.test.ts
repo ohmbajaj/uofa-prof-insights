@@ -8,6 +8,7 @@ import {
 import type { ComparisonRow } from '@content/components/ComparisonSidebar';
 import {
   isDismissed,
+  overlapsStrip,
   resetSidebarState,
   shouldShow,
   syncSidebar,
@@ -20,9 +21,9 @@ function row(name: string, rating: number | null, patch = {}): ComparisonRow {
 }
 
 function mount(): UPISidebar {
-  const el = document.createElement(SIDEBAR_TAG) as UPISidebar;
-  document.body.appendChild(el);
-  return el;
+  const sidebar = new UPISidebar(document);
+  document.body.appendChild(sidebar.el);
+  return sidebar;
 }
 
 function rowTexts(sidebar: UPISidebar): string[] {
@@ -269,6 +270,154 @@ describe('syncSidebar — reserving page space', () => {
     (sidebar?.shadowRoot?.querySelector('.close') as HTMLButtonElement).click();
 
     expect(document.body.style.paddingRight).toBe('');
+  });
+});
+
+/**
+ * The reservation is only worth its cost when the panel is actually covering
+ * something. In classic UAccess the Instructor column is the rightmost one, so
+ * its badges sit under the panel; in the Student Center the instructor sits in
+ * the middle of a card and the panel covers nothing, which makes reflowing the
+ * whole page pure damage.
+ */
+describe('overlapsStrip', () => {
+  const rect = (right: number) => ({ right }) as DOMRect;
+
+  it('is true for a badge in the right-hand strip', () => {
+    // 1900 wide, panel takes 1600..1900; a badge ending at 1700 is under it.
+    expect(overlapsStrip([rect(1700)], 1900, 300)).toBe(true);
+  });
+
+  it('is false when every badge sits clear of the strip', () => {
+    // The Class Schedule case: instructor names end well short of the edge.
+    expect(overlapsStrip([rect(1185), rect(900)], 1900, 300)).toBe(false);
+  });
+
+  it('is true when any single badge reaches the strip', () => {
+    expect(overlapsStrip([rect(200), rect(1650)], 1900, 300)).toBe(true);
+  });
+
+  it('is false with no badges at all', () => {
+    expect(overlapsStrip([], 1900, 300)).toBe(false);
+  });
+
+  it('treats a badge ending exactly at the boundary as clear', () => {
+    expect(overlapsStrip([rect(1600)], 1900, 300)).toBe(false);
+  });
+
+  it('overlaps everything on a viewport narrower than the panel', () => {
+    expect(overlapsStrip([rect(10)], 250, 300)).toBe(true);
+  });
+});
+
+/**
+ * The Student Center sizes its chrome against the viewport, so narrowing the
+ * body does not narrow those bars — the document simply grows wider than the
+ * window and the whole page starts scrolling sideways, with the panel covering
+ * nothing to begin with. jsdom performs no layout, so the widths are stubbed;
+ * what is under test is the decision, not the measurement.
+ */
+describe('syncSidebar — pages that cannot absorb the reservation', () => {
+  const two = [row('A Prof', 2.0), row('B Prof', 4.8)];
+
+  /**
+   * Stubs the page as `clientWidth` wide with content of `scrollWidth`, and
+   * puts a badge under the panel so the reservation is warranted at all.
+   */
+  function stubWidths(scrollWidth: () => number, clientWidth = 1000): () => void {
+    const root = document.documentElement;
+    Object.defineProperty(root, 'scrollWidth', { get: scrollWidth, configurable: true });
+    Object.defineProperty(root, 'clientWidth', { get: () => clientWidth, configurable: true });
+
+    const badge = document.createElement('upi-badge');
+    badge.getBoundingClientRect = () => ({ right: clientWidth - 20 }) as DOMRect;
+    document.body.appendChild(badge);
+
+    return () => {
+      delete (root as unknown as Record<string, unknown>).scrollWidth;
+      delete (root as unknown as Record<string, unknown>).clientWidth;
+      badge.remove();
+    };
+  }
+
+  it('backs the padding out when it introduces horizontal scrolling', () => {
+    // Fits until the body is padded, then overflows by the panel's width.
+    const restore = stubWidths(() => (document.body.style.paddingRight ? 1300 : 1000));
+    try {
+      syncSidebar(document, { enabled: true, rows: two, loading: false });
+      expect(document.body.style.paddingRight).toBe('');
+    } finally {
+      restore();
+    }
+  });
+
+  it('keeps the padding on a page that reflows into it', () => {
+    const restore = stubWidths(() => 1000);
+    try {
+      syncSidebar(document, { enabled: true, rows: two, loading: false });
+      expect(document.body.style.paddingRight).toBe('300px');
+    } finally {
+      restore();
+    }
+  });
+
+  it('leaves a page that already scrolls sideways alone', () => {
+    const restore = stubWidths(() => 1600);
+    try {
+      syncSidebar(document, { enabled: true, rows: two, loading: false });
+      expect(document.body.style.paddingRight).toBe('');
+    } finally {
+      restore();
+    }
+  });
+
+  it('still shows the panel when the reservation is refused', () => {
+    const restore = stubWidths(() => (document.body.style.paddingRight ? 1300 : 1000));
+    try {
+      syncSidebar(document, { enabled: true, rows: two, loading: false });
+      expect(document.querySelectorAll(SIDEBAR_TAG)).toHaveLength(1);
+    } finally {
+      restore();
+    }
+  });
+
+  it('does not restore a padding it never applied', () => {
+    const restore = stubWidths(() => (document.body.style.paddingRight === '300px' ? 1300 : 1000));
+    try {
+      document.body.style.paddingRight = '12px';
+      syncSidebar(document, { enabled: true, rows: two, loading: false });
+      syncSidebar(document, { enabled: false, rows: two, loading: false });
+
+      expect(document.body.style.paddingRight).toBe('12px');
+    } finally {
+      restore();
+    }
+  });
+
+  /**
+   * The reported bug, end to end: a Class Schedule page whose instructor names
+   * sit mid-card. The panel covers nothing, so the page must be left exactly as
+   * it was found.
+   */
+  it('leaves the page untouched when no badge is under the panel', () => {
+    const root = document.documentElement;
+    Object.defineProperty(root, 'clientWidth', { get: () => 1900, configurable: true });
+
+    const badge = document.createElement('upi-badge');
+    badge.getBoundingClientRect = () => ({ right: 1185 }) as DOMRect;
+    document.body.appendChild(badge);
+
+    try {
+      syncSidebar(document, { enabled: true, rows: two, loading: false });
+
+      expect(document.body.style.paddingRight).toBe('');
+      expect(document.body.dataset.upiPaddingRight).toBeUndefined();
+      // The panel is still there — it just is not shoving the page around.
+      expect(document.querySelectorAll(SIDEBAR_TAG)).toHaveLength(1);
+    } finally {
+      delete (root as unknown as Record<string, unknown>).clientWidth;
+      badge.remove();
+    }
   });
 });
 

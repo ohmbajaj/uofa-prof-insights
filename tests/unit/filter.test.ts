@@ -1,14 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  DEFAULT_FILTER,
-  FILTER_CHANGE_EVENT,
-  FILTER_TAG,
-  UPIFilterBar,
-} from '@content/components/FilterBar';
+import { DEFAULT_FILTER, FILTER_CHANGE_EVENT, FILTER_TAG } from '@content/components/FilterBar';
 import type { FilterState } from '@content/components/FilterBar';
 import {
   applyFilter,
   clearFilter,
+  getFilterBar,
   getFilterState,
   passesFilter,
   resetFilterState,
@@ -178,9 +174,9 @@ describe('applyFilter', () => {
       onChange: () => {},
     });
 
-    const bar = document.querySelector<UPIFilterBar>(FILTER_TAG)!;
+    const bar = getFilterBar()!;
     bar.state = { floor: null, includeUnrated: false };
-    bar.dispatchEvent(
+    bar.el.dispatchEvent(
       new CustomEvent(FILTER_CHANGE_EVENT, { detail: bar.state, bubbles: true, composed: true }),
     );
 
@@ -208,9 +204,9 @@ describe('applyFilter', () => {
 
 /** Drives the mounted bar the way a click would. */
 function getFilterBar_setFloor(floor: number | null): void {
-  const bar = document.querySelector<UPIFilterBar>(FILTER_TAG)!;
+  const bar = getFilterBar()!;
   bar.state = { ...bar.state, floor };
-  bar.dispatchEvent(
+  bar.el.dispatchEvent(
     new CustomEvent(FILTER_CHANGE_EVENT, { detail: bar.state, bubbles: true, composed: true }),
   );
 }
