@@ -23,6 +23,21 @@ export default defineConfig({
     // breaks on Vite 8, which ships oxc and no longer bundles esbuild.
     minify: !process.env.UPI_DEBUG,
     sourcemap: process.env.UPI_DEBUG ? 'inline' : false,
+
+    /*
+     * Vite emits `<link rel="modulepreload">` for the popup's shared chunks.
+     * Chrome refuses to use a preload issued from an extension page — "a
+     * cross-world extension resource mismatch" — and then warns a second time
+     * that the preload went unused, so every popup open logged four warnings on
+     * chrome://extensions.
+     *
+     * Nothing was broken: the chunks still load through the entry module's own
+     * import graph, and the hint only ever bought a parallel fetch. Over a
+     * chrome-extension:// URL with no network in the path, that is worth
+     * nothing and costs a permanently noisy error page, which matters because
+     * a real error has to stay visible among these.
+     */
+    modulePreload: false,
   },
   resolve: {
     alias: {
