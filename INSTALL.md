@@ -4,18 +4,22 @@ UofA Prof Insights shows Rate My Professors ratings beside instructors in
 UAccess class search. Installation takes about two minutes and does not require
 coding experience.
 
-## 1. Get the extension files
+## 1. Download the ready-to-use extension
 
-Download `uofa-prof-insights-1.0.0.zip` from the person sharing the extension
-and extract it. The extracted folder should contain `manifest.json`.
+[Download `uofa-prof-insights.zip`](downloads/uofa-prof-insights.zip?raw=1),
+then extract all of its files. The extracted folder should contain
+`manifest.json`. This ZIP already contains the complete built extension, so you
+do not need Node.js, npm, or programming experience.
 
 Keep this folder in a permanent location such as Documents. Chrome loads the
 extension from that location each time it starts, so moving or deleting the
 folder will disable it.
 
-To build from source instead:
+Developers who want to build from source can run:
 
 ```bash
+git clone https://github.com/ohmbajaj/uofa-prof-insights.git
+cd uofa-prof-insights
 npm install
 npm run build
 ```
@@ -24,14 +28,14 @@ Use the generated `dist/` folder in the remaining steps.
 
 ## 2. Enable Developer mode
 
-1. Open `chrome://extensions` in Chrome.
+1. Open `chrome://extensions` in Chrome or `edge://extensions` in Edge.
 2. Turn on **Developer mode** in the top-right corner.
 
 ## 3. Load the extension
 
 1. Select **Load unpacked**.
 2. Choose the extracted folder that contains `manifest.json`.
-3. Confirm that UofA Prof Insights appears with its cardinal star icon.
+3. Confirm that UofA Prof Insights appears with its Block A icon.
 
 Chrome may show a startup warning for extensions installed outside the Chrome
 Web Store. This is expected for a side-loaded extension.

@@ -8,7 +8,24 @@ review course-specific ratings, and filter sections without leaving UAccess.
 
 [Installation](INSTALL.md) · [Privacy](PRIVACY.md) · [License](LICENSE)
 
-![UofA class search with instructor rating badges, a rating filter, and professor details](docs/screenshots/uaccess.png)
+## Install the extension
+
+[**Download the ready-to-use ZIP**](downloads/uofa-prof-insights.zip?raw=1)
+
+The ZIP contains the complete built extension. You do not need Node.js, npm, or
+any programming tools to install it:
+
+1. Download the ZIP and extract all files to a permanent folder.
+2. Open `chrome://extensions` in Chrome or `edge://extensions` in Edge.
+3. Turn on **Developer mode**.
+4. Select **Load unpacked** and choose the extracted folder containing
+   `manifest.json`.
+5. Keep that extracted folder in place, then open UAccess Class Search.
+
+See the [full installation and troubleshooting guide](INSTALL.md) for detailed
+steps.
+
+![Modern UAccess class search with instructor rating badges and professor details](docs/screenshots/uaccess.png)
 
 <table>
 <tr>
@@ -75,10 +92,11 @@ Several implementation details prevent plausible but incorrect ratings:
 - Multiple instructors in one section are handled independently, while the
   filter keeps a co-taught section when any instructor meets the threshold.
 
-## Local development
+## Build from source (optional)
 
 Requirements: Node.js `^20.19.0` or `>=22.12.0`, npm, and Chrome or Edge for
-browser verification.
+browser verification. Regular users should install the ready-to-use ZIP above;
+these commands are only for developers who want to change or rebuild the code.
 
 ```bash
 git clone https://github.com/ohmbajaj/uofa-prof-insights.git
