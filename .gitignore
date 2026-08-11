@@ -43,3 +43,7 @@ release/
 *.zip
 *.crx
 *.pem
+
+# Ready-to-install bundle published with the repository
+!downloads/
+!downloads/uofa-prof-insights.zip

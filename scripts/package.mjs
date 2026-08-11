@@ -1,5 +1,5 @@
 /**
- * Zips `dist/` into a shareable archive at `release/<name>-<version>.zip`.
+ * Zips `dist/` into a versioned local release and a stable download artifact.
  *
  * Writes the archive by hand (stored, no compression) so packaging needs no
  * dependencies. Chrome accepts stored entries, and the payload is ~200 KB.
@@ -15,6 +15,7 @@ import { crc32 } from 'node:zlib';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(ROOT, 'dist');
 const RELEASE = join(ROOT, 'release');
+const DOWNLOADS = join(ROOT, 'downloads');
 
 if (!existsSync(DIST)) {
   console.error('dist/ not found. Run `npm run build` first.');
@@ -51,16 +52,13 @@ function assertNoReservedNames(files) {
   process.exit(1);
 }
 
-/** DOS date/time as used by the ZIP local header. */
-function dosStamp(date) {
-  const time =
-    (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2);
-  const day = ((date.getFullYear() - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate();
-  return { time, day };
+/** Fixed DOS date/time so identical extension files produce identical ZIP bytes. */
+function dosStamp() {
+  return { time: 0, day: (1 << 5) | 1 }; // 1980-01-01 00:00:00
 }
 
 async function buildZip(files) {
-  const { time, day } = dosStamp(new Date());
+  const { time, day } = dosStamp();
   const locals = [];
   const central = [];
   let offset = 0;
@@ -138,9 +136,13 @@ if (files.length === 0) {
 assertNoReservedNames(files);
 
 mkdirSync(RELEASE, { recursive: true });
+mkdirSync(DOWNLOADS, { recursive: true });
 const outFile = join(RELEASE, `${pkg.name}-${manifest.version}.zip`);
+const downloadFile = join(DOWNLOADS, `${pkg.name}.zip`);
 const zip = await buildZip(files);
 writeFileSync(outFile, zip);
+writeFileSync(downloadFile, zip);
 
 console.log(`packaged ${files.length} files -> ${relative(ROOT, outFile)}`);
+console.log(`published ready-to-install copy -> ${relative(ROOT, downloadFile)}`);
 console.log(`${(zip.length / 1024).toFixed(1)} KB`);
