@@ -21,7 +21,7 @@ export function detectProfessorsNew(doc: Document): DetectedProfessor[] {
       normalizeCourseCode(panel.querySelector('.courseCode')?.textContent ?? null) ?? undefined;
 
     for (const element of panel.querySelectorAll<HTMLElement>(INSTRUCTOR_SELECTOR)) {
-      // Same placeholder filtering as the classic table — a "Staff" section is
+      // Apply the classic table's placeholder filtering. A "Staff" section is
       // just as unsearchable here.
       for (const rawName of extractNameLines(element)) {
         if (!isRealInstructor(rawName)) continue;

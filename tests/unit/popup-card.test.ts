@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CARD_REFRESH_EVENT, CARD_TAG, UPICard, formatAge } from '@content/components/PopupCard';
+import { CARD_REFRESH_EVENT, CARD_TAG, UPICard } from '@content/components/PopupCard';
 import {
   closeCard,
   computePosition,
@@ -17,7 +17,7 @@ function mount(): UPICard {
   return card;
 }
 
-/** Scoped to `.card` — the shadow root's own textContent includes the <style>. */
+/** Scoped to `.card` because the shadow root's textContent includes the style. */
 function shadowText(card: UPICard): string {
   return card.shadowRoot?.querySelector('.card')?.textContent ?? '';
 }
@@ -81,14 +81,14 @@ describe('UPICard', () => {
     expect(values).toEqual(['2.9', '3.4', '49%']);
   });
 
-  it('shows em-dashes for missing stats', () => {
+  it('shows N/A for missing stats', () => {
     const card = mount();
     card.data = makeProfessor({ overallRating: null, difficulty: null, wouldTakeAgain: null });
 
     const values = [...(card.shadowRoot?.querySelectorAll('.stat .value') ?? [])].map(
       (n) => n.textContent,
     );
-    expect(values).toEqual(['—', '—', '—']);
+    expect(values).toEqual(['N/A', 'N/A', 'N/A']);
   });
 
   it('colors the primary stat by rating', () => {
@@ -108,7 +108,7 @@ describe('UPICard', () => {
   it('explains an unrated professor instead of showing empty tags', () => {
     const card = mount();
     card.data = makeProfessor({ topTags: [], numRatings: 0 });
-    expect(shadowText(card)).toContain('No ratings on RateMyProfessor yet');
+    expect(shadowText(card)).toContain('No ratings on Rate My Professors yet');
   });
 
   it('distinguishes "no tags" from "no ratings"', () => {
@@ -227,21 +227,6 @@ describe('updateOpenCard', () => {
 
   it('is a no-op when no card is open', () => {
     expect(() => updateOpenCard('Anyone', makeProfessor())).not.toThrow();
-  });
-});
-
-describe('formatAge', () => {
-  const now = Date.parse('2026-08-04T12:00:00Z');
-
-  it.each([
-    [0, 'just now'],
-    [30_000, 'just now'],
-    [5 * 60_000, '5m ago'],
-    [3 * 3_600_000, '3h ago'],
-    [26 * 3_600_000, '1 day ago'],
-    [5 * 86_400_000, '5 days ago'],
-  ])('formats %s ms as %s', (elapsed, expected) => {
-    expect(formatAge(now - elapsed, now)).toBe(expected);
   });
 });
 

@@ -10,7 +10,7 @@ import type { ReviewInsights } from '@shared/types';
  * - No sentiment scoring. Judging tone reliably needs a model we do not have,
  *   and a confidently mislabelled "positive" review is worse than none. RMP's
  *   own tags already carry the evaluative summary; this adds what the tags
- *   cannot — how often something is actually said.
+ *   cannot: how often something is actually said.
  * - Phrases are reported with their mention counts, so a phrase said twice
  *   never reads like a consensus.
  */
@@ -79,7 +79,7 @@ export function extractPhrases(comments: string[]): { phrase: string; mentions: 
   /*
    * Keep one phrase per topic.
    *
-   * A single sentence yields many overlapping slices — "lots of homework
+   * A single sentence yields many overlapping slices. "Lots of homework
    * assigned weekly" produces both "lots of homework" and "homework assigned
    * weekly", which contain neither each other nor a shared word pair, yet say
    * the same thing. Claiming a phrase's content words prevents that: the list

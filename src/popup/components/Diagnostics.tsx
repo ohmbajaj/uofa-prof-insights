@@ -20,7 +20,7 @@ function verdict(report: PageDiagnostics): { ok: boolean; text: string } {
   if (report.textRuns === 0) {
     return {
       ok: false,
-      text: 'The page had no readable text yet — try again once it finishes loading.',
+      text: 'The page had no readable text yet. Try again once it finishes loading.',
     };
   }
   return {
@@ -32,8 +32,8 @@ function verdict(report: PageDiagnostics): { ok: boolean; text: string } {
 /**
  * "Diagnose this page", for when no badges appear.
  *
- * The two causes look identical from the outside — the content script not
- * running, versus its selectors not matching — and they need opposite fixes.
+ * A missing content script and unmatched selectors look identical from the
+ * outside, but they require different fixes.
  * Reaching the content script at all already answers the first question.
  */
 export default function Diagnostics() {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { sendMessage } from '@shared/messaging';
 import type { ProfessorData, RecentProfessor, UsageStats } from '@shared/types';
-import { getRatingColor } from '@shared/utils';
+import { formatAge, getRatingColor } from '@shared/utils';
 import SearchBar from '../components/SearchBar';
 import ProfessorResult from '../components/ProfessorResult';
 
@@ -11,16 +11,6 @@ type SearchState =
   | { status: 'found'; data: ProfessorData }
   | { status: 'missing'; name: string }
   | { status: 'failed'; message: string };
-
-function relativeTime(then: number, now = Date.now()): string {
-  const minutes = Math.floor((now - then) / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return days === 1 ? 'yesterday' : `${days}d ago`;
-}
 
 export default function Status() {
   const [stats, setStats] = useState<UsageStats | null>(null);
@@ -61,7 +51,7 @@ export default function Status() {
     <div className="page">
       <SearchBar onSearch={(name) => void onSearch(name)} busy={search.status === 'busy'} />
 
-      {search.status === 'busy' && <p className="notice">Searching RateMyProfessor…</p>}
+      {search.status === 'busy' && <p className="notice">Searching Rate My Professors…</p>}
       {search.status === 'found' && <ProfessorResult data={search.data} />}
       {search.status === 'missing' && (
         <p className="notice">
@@ -95,7 +85,7 @@ export default function Status() {
                     {r.name}
                   </a>
                   <span className="recent__sub">
-                    {r.department} · {relativeTime(r.viewedAt)}
+                    {r.department} · {formatAge(r.viewedAt)}
                   </span>
                 </span>
               </li>

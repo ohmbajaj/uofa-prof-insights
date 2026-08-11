@@ -6,7 +6,7 @@ import type { DetectedProfessor } from './detector';
  * Detection for the classic (PeopleSoft "Classic") UAccess class search.
  *
  * A search returns one results table per course, so the ids are suffixed with
- * an instance index — `CLASS_SRCH_WRK2_STRM$scroll$0`, `$scroll$1`, and so on.
+ * an instance index such as `CLASS_SRCH_WRK2_STRM$scroll$0` or `$scroll$1`.
  * We match on the prefix rather than the literal `$0` so a multi-course search
  * is fully covered rather than only the first course.
  */
@@ -67,7 +67,7 @@ function cellAtColumn(row: HTMLTableRowElement, targetColumn: number): HTMLEleme
  * "Mercer, RichardDebray, Saumya".
  */
 export function extractNameLines(element: Element): string[] {
-  // `Node.ELEMENT_NODE` by value — the global `Node` is not reliably the same
+  // Use `Node.ELEMENT_NODE` by value because the global `Node` can differ
   // object across realms (iframe documents in particular).
   const ELEMENT_NODE = 1;
   const lines: string[] = [];
@@ -103,7 +103,7 @@ function courseCodeForRow(row: HTMLTableRowElement, table: HTMLTableElement): st
   if (fromCell) return fromCell;
 
   const heading = table.previousElementSibling?.textContent ?? '';
-  return normalizeCourseCode(heading.split(/[-–—]/)[0] ?? null) ?? undefined;
+  return normalizeCourseCode(heading.split(/[-\u2013\u2014]/)[0] ?? null) ?? undefined;
 }
 
 function detectInTable(table: HTMLTableElement): DetectedProfessor[] {

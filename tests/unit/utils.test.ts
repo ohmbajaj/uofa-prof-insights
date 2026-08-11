@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { getRatingColor, normalizeCacheKey, normalizeNameForRMP } from '@shared/utils';
+import {
+  formatAge,
+  formatDuration,
+  getRatingColor,
+  normalizeCacheKey,
+  normalizeNameForRMP,
+} from '@shared/utils';
 import { COLOR_BAD, COLOR_GOOD, COLOR_OK, COLOR_UNKNOWN } from '@shared/constants';
 
 describe('normalizeNameForRMP', () => {
@@ -93,5 +99,29 @@ describe('normalizeCacheKey', () => {
 
   it('round-trips a normalized UAccess name', () => {
     expect(normalizeCacheKey(normalizeNameForRMP('Mercer, Rick'))).toBe('uofa:rick_mercer');
+  });
+});
+
+describe('time labels', () => {
+  const now = Date.parse('2026-08-04T12:00:00Z');
+
+  it.each([
+    [0, 'just now'],
+    [30_000, 'just now'],
+    [5 * 60_000, '5m ago'],
+    [3 * 3_600_000, '3h ago'],
+    [26 * 3_600_000, '1 day ago'],
+    [5 * 86_400_000, '5 days ago'],
+  ])('formats an age of %s ms as %s', (elapsed, expected) => {
+    expect(formatAge(now - elapsed, now)).toBe(expected);
+  });
+
+  it.each([
+    [0, 'N/A'],
+    [30 * 60_000, '<1h'],
+    [6 * 3_600_000, '6h'],
+    [3 * 86_400_000, '3d'],
+  ])('formats a duration of %s ms as %s', (duration, expected) => {
+    expect(formatDuration(duration)).toBe(expected);
   });
 });

@@ -3,7 +3,7 @@ import { detectProfessorsGeneric } from '@content/detector-generic';
 import { detectProfessors } from '@content/detector';
 
 /**
- * Rebuilt from a real UAccess "Class Schedule" page — the card layout that
+ * Rebuilt from a real UAccess "Class Schedule" page, the card layout that
  * matches neither the classic grid nor the Student Center result panels.
  * Note the instructor field: two names, natural order, comma separated.
  */
@@ -40,7 +40,7 @@ beforeEach(() => {
   vi.spyOn(console, 'info').mockImplementation(() => {});
 });
 
-describe('detectProfessorsGeneric — Class Schedule cards', () => {
+describe('detectProfessorsGeneric: Class Schedule cards', () => {
   it('finds both instructors in a shared field', () => {
     document.body.innerHTML = CLASS_SCHEDULE;
     const found = detectProfessorsGeneric(document);
@@ -74,7 +74,7 @@ describe('detectProfessorsGeneric — Class Schedule cards', () => {
   });
 });
 
-describe('detectProfessorsGeneric — real Student Center markup shapes', () => {
+describe('detectProfessorsGeneric: real Student Center markup shapes', () => {
   /**
    * The shape actually used by studentcenter.arizona.edu: an icon element
    * followed by a bare text node, with no wrapper around the name. Scanning
@@ -122,7 +122,7 @@ describe('detectProfessorsGeneric — real Student Center markup shapes', () => 
   });
 });
 
-describe('detectProfessorsGeneric — restraint', () => {
+describe('detectProfessorsGeneric: restraint', () => {
   it('ignores names with no course code nearby', () => {
     document.body.innerHTML = `
       <div class="profile"><span>Ohm Bajaj</span></div>
@@ -155,7 +155,7 @@ describe('detectProfessorsGeneric — restraint', () => {
   });
 
   /**
-   * "Class Nbr" is two capitalised words with no digits — structurally
+   * "Class Nbr" is two capitalised words with no digits, structurally
    * identical to "Rick Mercer". Shape alone cannot separate them.
    */
   it.each([

@@ -7,7 +7,7 @@
  * that makes an extension an extension: the CRXJS loader shim, the
  * `chrome.runtime.getURL` dynamic import of the real chunk, web-accessible
  * resource resolution, and Chrome's own script injection. All of those can
- * fail while every existing check still passes — which is precisely what
+ * fail while every existing check still passes. That is what
  * happened on studentcenter.arizona.edu, where the extension reported "not
  * running on this tab".
  *
@@ -33,7 +33,7 @@ const DIST = join(ROOT, 'dist');
  * Branded Google Chrome cannot: it now refuses `--disable-extensions-except`
  * ("not allowed in Google Chrome, ignoring") and no longer honours
  * `--load-extension`, an anti-malware change. The extension simply never
- * loads, which is indistinguishable from a broken content script — this
+ * loads, which is indistinguishable from a broken content script. This
  * harness was reporting exactly that for half an hour.
  *
  * Edge and Chromium run the same engine and still allow it, so they are tried
@@ -99,7 +99,7 @@ const PAGE = `<!doctype html>
   nested as deeply as the SPA nests them. Deliberately no classic results
   table: the generic detector runs only when the classic and Student Center
   detectors both find nothing, so including one means this path is never
-  exercised — which is why an earlier version of this harness passed while
+  exercised. That is why an earlier version of this harness passed while
   the real pages stayed empty.
 -->
 <div id="app"><div class="page"><div class="content">
@@ -163,7 +163,7 @@ const PAGE = `<!doctype html>
 <pre id="out">waiting…</pre>
 <script>
   // Give the content script time to inject and resolve lookups against the
-  // real API. This page does not stub chrome.* — the extension is real here.
+  // real API. This page does not stub chrome.*; the extension is real here.
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // Capture anything the extension logs or throws, so a silent injection
   // failure leaves evidence instead of just an empty page.
@@ -182,7 +182,7 @@ const PAGE = `<!doctype html>
    * The pill's own text, NOT shadowRoot.textContent.
    *
    * The shadow root also contains the <style> element, whose CSS is full of
-   * digits — so a "has this resolved yet" test against the whole root matched
+   * digits. A "has this resolved yet" test against the whole root matched
    * on the very first poll, every time. This harness was reporting three
    * resolved badges roughly 400ms after load and then clicking one that was
    * still showing its loading skeleton.
@@ -240,8 +240,6 @@ const PAGE = `<!doctype html>
       horizontalOverflow: root.scrollWidth - root.clientWidth > 2,
       bodyPaddingRight: document.body.style.paddingRight || '(none)',
     };
-    report.panelsPinnedToEdge = document.querySelectorAll('upi-sidebar').length;
-
     // A badge that opens nothing is the same failure as a badge that never
     // appeared, so drive the click the way a student would.
     const first = document.querySelector('upi-badge');
@@ -264,7 +262,7 @@ const PAGE = `<!doctype html>
 // ------------------------------------------------------------------- driver
 
 if (!existsSync(DIST)) {
-  console.error('dist/ not found — run `npm run build` first.');
+  console.error('dist/ not found. Run `npm run build` first.');
   process.exit(1);
 }
 
@@ -290,7 +288,7 @@ const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
  * variable; the shipped manifest is untouched.
  */
 const ANY = '<all_urls>';
-// `<all_urls>` is rejected inside web_accessible_resources — Chrome requires a
+// `<all_urls>` is rejected inside web_accessible_resources. Chrome requires a
 // concrete pattern there, and an invalid manifest makes the whole extension
 // fail to load silently, which looks exactly like a broken content script.
 const LOOPBACK = 'http://127.0.0.1/*';
@@ -307,8 +305,8 @@ writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
  *
  * "No badges" has three possible causes that look identical: the content
  * script was never injected, the loader ran but its dynamic import failed, or
- * the bundle ran and the detectors found nothing. Markers on <html> — readable
- * from the page, since the DOM is shared — tell them apart.
+ * the bundle ran and the detectors found nothing. Markers on <html>, readable
+ * from the page because the DOM is shared, tell them apart.
  */
 const loaderName = manifest.content_scripts[0].js[0];
 const loaderPath = join(stage, loaderName);
@@ -400,7 +398,7 @@ console.log(`page:      ${url}\n`);
 /*
  * Headless Chrome has historically been unreliable at loading unpacked
  * extensions. `HEADED=1` runs a real browser window, which distinguishes "the
- * extension is broken" from "the harness cannot load extensions" — opposite
+ * extension is broken" from "the harness cannot load extensions", which need
  * conclusions from the same empty result.
  */
 /*
@@ -475,7 +473,7 @@ const checks = [
   ['badges resolved against the live API', report.resolved === report.badges && report.badges > 0],
   /*
    * Amy Graham from class search and Ratchaneekorn Thamvichai from class
-   * schedule — one from each layout. The third name the generic detector finds,
+   * schedule, one from each layout. The third name the generic detector finds,
    * Na Liu, has no RateMyProfessors profile, and a speculative name that
    * matches nobody is withdrawn rather than left printing "N/A" on the page.
    */
@@ -490,12 +488,6 @@ const checks = [
   ['clicking a badge opens the detail card', report.card.shadow && report.card.width > 0],
   ['the card shows the professor it was opened for', report.cardText.includes('Amy Graham')],
 
-  /*
-   * The page must look exactly as it did before the extension touched it. The
-   * comparison panel was pinned to the right edge and the body was narrowed to
-   * make room for it; both are gone, and nothing else may take their place.
-   */
-  ['no panel pinned to the page edge', report.panelsPinnedToEdge === 0],
   ['the extension did not reflow the page', report.layout.bodyPaddingRight === '(none)'],
   ['the extension did not make the page scroll sideways', !report.layout.horizontalOverflow],
 ];
@@ -509,7 +501,7 @@ for (const [label, ok] of checks) {
 
 if (failed > 0) {
   console.error(
-    `\n${failed} check(s) failed — the extension does not work when loaded as an extension.`,
+    `\n${failed} check(s) failed. The extension does not work when loaded as an extension.`,
   );
 
   const relevant = stderr

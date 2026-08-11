@@ -121,7 +121,7 @@ describe('applyFilter', () => {
     const input = setup();
     syncFilterBar(document, { ...input, enabled: true, onChange: () => {} });
 
-    // Ratings are 2.9, 3.4 and 4.6 — a 3.5 floor leaves only O'Brien.
+    // Ratings are 2.9, 3.4 and 4.6, so a 3.5 floor leaves only O'Brien.
     getFilterBar_setFloor(3.5);
     expect(visibleRows()).toBe(1);
 
@@ -253,7 +253,7 @@ describe('syncFilterBar', () => {
   });
 
   it('reuses the same bar across updates and keeps its state', () => {
-    // One DOM, synced twice — re-running input() would wipe the page.
+    // Use one DOM for both syncs because input() would wipe the page.
     const shared = input();
     const first = syncFilterBar(document, shared);
     getFilterBar_setFloor(3.5);

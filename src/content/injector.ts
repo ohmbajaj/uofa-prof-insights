@@ -24,9 +24,8 @@ function badgesFor(element: Element): UPIBadge[] {
 /**
  * Injects a loading badge for every professor that does not already have one.
  *
- * Returns the badges it created so the caller can resolve them. (The spec
- * called for `void`, but Step 6 needs the badge handles to apply lookup
- * results; returning them avoids exporting mutable module state.)
+ * Returns the new badges so the caller can apply lookup results without
+ * exposing mutable module state.
  */
 export function injectBadges(profs: DetectedProfessor[]): InjectedBadge[] {
   pruneDetached();
@@ -36,7 +35,7 @@ export function injectBadges(profs: DetectedProfessor[]): InjectedBadge[] {
   for (const professor of profs) {
     const { element, name } = professor;
 
-    // Already badged for this exact name — a re-detection pass, not new content.
+    // This exact name was already handled in an earlier detection pass.
     if (badgesFor(element).some((b) => b.dataset.upiName === name)) continue;
 
     const badge = new UPIBadge(element.ownerDocument);
@@ -112,7 +111,7 @@ export function pruneDetached(): number {
   return removed;
 }
 
-/** Test seam — drops all tracking state without touching the DOM. */
+/** Drops tracking state without touching the DOM. */
 export function resetInjectorState(): void {
   injected.clear();
 }

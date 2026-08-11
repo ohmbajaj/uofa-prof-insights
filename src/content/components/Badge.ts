@@ -112,15 +112,15 @@ const STYLES = `
  * A rating pill, as a plain element with a shadow root.
  *
  * Deliberately NOT a custom element. `window.customElements` is `null` inside a
- * content script's isolated world, so `customElements.define` throws there —
+ * content script's isolated world, so `customElements.define` throws there.
  * and because these components registered themselves at module scope, that
  * single throw killed the entire content script before it did anything. Every
  * jsdom test and the module-loading harness passed regardless, because both run
  * in a normal page context where the registry exists.
  *
  * `attachShadow` is an ordinary DOM method and works fine in an isolated world,
- * so the encapsulation is unchanged. The host keeps the `upi-badge` tag name —
- * unknown tags are legal — so selectors and styling still read naturally.
+ * so the encapsulation is unchanged. Unknown tags are valid HTML, so the host
+ * keeps the descriptive `upi-badge` name.
  */
 export class UPIBadge {
   static readonly styles = STYLES;
@@ -222,14 +222,14 @@ export class UPIBadge {
 
     if (data === 'loading') {
       this.#badge.textContent = '   ';
-      this.#apply('Looking up RateMyProfessor…', COLOR_UNKNOWN, 'Loading professor rating');
+      this.#apply('Looking up Rate My Professors…', COLOR_UNKNOWN, 'Loading professor rating');
       return;
     }
 
     if (data === 'error') {
       this.#badge.textContent = '?';
       this.#apply(
-        'Could not reach RateMyProfessors — click to retry',
+        'Could not reach Rate My Professors. Click to retry',
         COLOR_BAD,
         'Rating unavailable',
       );
@@ -238,14 +238,18 @@ export class UPIBadge {
 
     if (data === null) {
       this.#badge.textContent = 'N/A';
-      this.#apply('No RateMyProfessor match for this instructor', COLOR_UNKNOWN, 'No rating found');
+      this.#apply(
+        'No Rate My Professors match for this instructor',
+        COLOR_UNKNOWN,
+        'No rating found',
+      );
       return;
     }
 
     if (data.overallRating === null) {
       this.#badge.textContent = 'N/A';
       this.#apply(
-        `${data.name} is on RateMyProfessor but has no ratings yet`,
+        `${data.name} is on Rate My Professors but has no ratings yet`,
         COLOR_UNKNOWN,
         `${data.name}: no ratings yet`,
       );

@@ -4,11 +4,8 @@ import type { ProfessorData, RecentProfessor, UsageStats } from '@shared/types';
 /**
  * Local-only usage counters and recently viewed professors.
  *
- * Everything here stays in chrome.storage.local and is never transmitted. The
- * extension's privacy claim — that nothing about the user leaves their browser
- * — is its strongest property, and worth more than aggregate analytics. These
- * numbers exist so the user can see what the extension has done for them, and
- * so the project can report real usage without collecting anything.
+ * Everything here stays in chrome.storage.local. These counters let users see
+ * what the extension has done without adding remote analytics.
  */
 export const EMPTY_STATS: UsageStats = {
   lookups: 0,
@@ -59,8 +56,7 @@ export async function getRecents(): Promise<RecentProfessor[]> {
 /**
  * Records a professor as recently viewed, most recent first.
  *
- * Deliberately stores only what the popup renders — no course, section or
- * anything else that would describe the user's schedule.
+ * Stores only what the popup renders. Course and section details are omitted.
  */
 export async function recordRecent(data: ProfessorData): Promise<RecentProfessor[]> {
   const entry: RecentProfessor = {

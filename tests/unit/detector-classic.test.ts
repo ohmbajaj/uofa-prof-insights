@@ -131,7 +131,7 @@ describe('detectProfessorsClassic', () => {
   });
 });
 
-describe('detectProfessorsClassic — colspan handling', () => {
+describe('detectProfessorsClassic: colspan handling', () => {
   it('resolves the instructor column by colspan when the id is missing', () => {
     // Real UAccess merges Start/End Date and Days & Times into one colspan=2
     // cell, so the instructor <td> is at child index 7 while the Instructor
@@ -182,7 +182,7 @@ describe('extractNameLines', () => {
   });
 });
 
-describe('detectProfessorsClassic — multiple instructors per cell', () => {
+describe('detectProfessorsClassic: multiple instructors per cell', () => {
   it('emits one entry per instructor', () => {
     const doc = build(row('<td id="MTG_INSTR$0">Mercer, Richard<br>Debray, Saumya</td>'));
     const found = detectProfessorsClassic(doc);

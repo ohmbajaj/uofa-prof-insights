@@ -8,7 +8,7 @@ import { searchProfessor } from '@background/rmp-api';
  *
  *   npm run test:live
  *
- * Worth re-running whenever RMP ships a schema change — this is the suite that
+ * Re-run this whenever RMP ships a schema change. This suite
  * catches "the extension silently returns nothing" in the wild.
  */
 const live = import.meta.env.MODE === 'live';
