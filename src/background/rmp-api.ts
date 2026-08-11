@@ -25,7 +25,7 @@ import { summarizeReviews } from './reviews';
  *
  * Variables: `{ query: { text: string, schoolID: UOFA_SCHOOL_ID } }`
  *
- * Caveat found during Phase 0: the search is fuzzy and school-scoped only —
+ * The search is fuzzy and school-scoped only. For example,
  * querying "Rick Mercer" returns 10 UofA hits (Rick Mercer, Dave Rick,
  * Rick Yngve, ...). Exact first+last matching has to happen on our side.
  */
@@ -55,7 +55,7 @@ query NewSearchTeachersQuery($query: TeacherSearchQuery!) {
 
 /**
  * Per-teacher ratings query. Needed because `Teacher.teacherRatingTags` comes
- * back empty in practice — top tags must be tallied from the `--`-delimited
+ * back empty in practice. Top tags must be tallied from the `--`-delimited
  * `ratingTags` string on individual ratings.
  */
 export const TEACHER_RATINGS_QUERY = `
@@ -97,7 +97,7 @@ interface RatingNode {
   helpfulRating: number | null;
   difficultyRating: number | null;
   comment: string | null;
-  /** "mandatory" / "non mandatory" / "" — free text, not a boolean. */
+  /** "mandatory" / "non mandatory" / "" as free text. */
   attendanceMandatory: string | null;
   textbookIsUsed: boolean | null;
   /** Self-reported, and often "Rather not say". */
@@ -232,8 +232,8 @@ function rankCandidates(candidates: TeacherNode[], first: string): ProfessorMatc
  *
  * The volume rule is what makes this correct rather than merely lenient. For
  * "Mercer, Richard" the UofA CS candidates are Rick Mercer (2.9, 164 ratings)
- * and Richard Mercer (1.0, 1 rating) — the same person, with a duplicate
- * profile. Exact matching picks the single-review profile and reports 1.0.
+ * and Richard Mercer (1.0, 1 rating). They are duplicate profiles for the same
+ * professor. Exact matching picks the single-review profile and reports 1.0.
  *
  * Guard: a nickname-equivalent profile is only merged with an exact-name one
  * when they share a department. Two genuinely different people who happen to
@@ -279,15 +279,7 @@ export function selectMatch(nodes: TeacherNode[], name: string): ProfessorMatch 
 
   if (candidates.length === 0) return null;
 
-  const ranked = [...candidates].sort((a, b) => (b.numRatings ?? 0) - (a.numRatings ?? 0));
-  const [best, ...alternates] = ranked;
-  if (!best) return null;
-
-  return {
-    node: best,
-    alternates,
-    confidence: comparableName(best.firstName ?? '') === first ? 'exact' : 'nickname',
-  };
+  return rankCandidates(candidates, first);
 }
 
 /** Tallies the `--`-delimited ratingTags strings into the most common tags. */
@@ -317,7 +309,7 @@ function mean(values: number[]): number | null {
 /**
  * Groups individual ratings by course.
  *
- * Only courses with at least MIN_COURSE_RATINGS reviews are kept — a
+ * Only courses with at least MIN_COURSE_RATINGS reviews are kept. A
  * single review is noise, and presenting it beside a 164-review average would
  * imply a precision that is not there.
  */
@@ -380,11 +372,6 @@ export async function fetchRatingInsights(teacherId: string): Promise<RatingInsi
   };
 }
 
-/**
- * Looks up one professor by natural-order name ("Rick Mercer"), scoped to UofA.
- * Resolves to null when there is no exact match. Throws RmpApiError on network
- * or GraphQL failures so the caller can distinguish "not found" from "broken".
- */
 /** One page of school-scoped candidates for a free-text query. */
 async function fetchCandidates(text: string): Promise<TeacherNode[]> {
   const data = await gql<SearchResponse>(TEACHER_SEARCH_QUERY, {
@@ -444,6 +431,7 @@ export interface SearchOptions {
   fuzzy?: boolean;
 }
 
+/** Looks up one professor by natural-order name within the University of Arizona. */
 export async function searchProfessor(
   name: string,
   options: SearchOptions = {},
@@ -458,8 +446,8 @@ export async function searchProfessor(
    * Search by surname, not by the full name.
    *
    * RMP ranks results by given name, so querying "Richard Mercer" returns ten
-   * unrelated Richards from across campus and omits "Rick Mercer" — the
-   * profile that actually holds this professor's 164 ratings — entirely.
+   * unrelated Richards from across campus and omits "Rick Mercer", the
+   * profile that holds this professor's 164 ratings.
    * Querying "Mercer" returns exactly the three Mercers, which is the pool
    * selectMatch needs. Verified against the live API.
    */
@@ -469,7 +457,7 @@ export async function searchProfessor(
   /*
    * A full page suggests the surname results were truncated, so the right
    * person may simply not be on it. Fall back to the full-name query and match
-   * over the union — but only when the surname pass was inconclusive, to keep
+   * over the union, but only when the surname pass was inconclusive, to keep
    * the common case at one request.
    */
   const truncated = candidates.length >= SEARCH_PAGE_SIZE;

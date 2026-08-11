@@ -1,148 +1,119 @@
-# Installing UofA Prof Insights
+# Install UofA Prof Insights
 
-RateMyProfessor ratings shown inline in UAccess, so you can see who's teaching a
-section without opening another tab.
+UofA Prof Insights shows Rate My Professors ratings beside instructors in
+UAccess class search. Installation takes about two minutes and does not require
+coding experience.
 
-Takes about two minutes. You do **not** need to know how to code.
+## 1. Get the extension files
 
----
+Download `uofa-prof-insights-1.0.0.zip` from the person sharing the extension
+and extract it. The extracted folder should contain `manifest.json`.
 
-## Step 1 — Get the extension files
+Keep this folder in a permanent location such as Documents. Chrome loads the
+extension from that location each time it starts, so moving or deleting the
+folder will disable it.
 
-Ask whoever shared this with you for the **`uofa-prof-insights-1.0.0.zip`** file,
-then unzip it. You'll end up with a folder containing a `manifest.json` file.
+To build from source instead:
 
-Keep that folder somewhere permanent — Documents is fine, but **not** your
-Downloads folder, and not the Recycle Bin. Chrome loads the extension from this
-folder every time it starts, so if you move or delete it the extension stops
-working.
+```bash
+npm install
+npm run build
+```
 
-> **Building it yourself instead?** See [README.md](README.md). Run
-> `npm install && npm run build`, then point Chrome at the `dist/` folder.
+Use the generated `dist/` folder in the remaining steps.
 
-## Step 2 — Turn on Developer mode in Chrome
+## 2. Enable Developer mode
 
-1. Open Chrome and go to **`chrome://extensions`** (type it in the address bar).
-2. Find the **Developer mode** switch in the top-right corner and turn it **on**.
+1. Open `chrome://extensions` in Chrome.
+2. Turn on **Developer mode** in the top-right corner.
 
-## Step 3 — Load the extension
+## 3. Load the extension
 
-1. Click **Load unpacked** (top-left, appears once Developer mode is on).
-2. Select the folder from Step 1 — the one containing `manifest.json`.
-3. "UofA Prof Insights" appears in your list with a red star icon.
+1. Select **Load unpacked**.
+2. Choose the extracted folder that contains `manifest.json`.
+3. Confirm that UofA Prof Insights appears with its cardinal star icon.
 
-Chrome will show a "Developer mode extensions" warning each time it starts.
-That's normal for an extension not installed from the Chrome Web Store, and it's
-safe to dismiss.
+Chrome may show a startup warning for extensions installed outside the Chrome
+Web Store. This is expected for a side-loaded extension.
 
-## Step 4 — Try it
+## 4. Try it in UAccess
 
-1. Go to UAccess and sign in as usual.
-2. Open **Class Search** and search for any course.
-3. A colored rating badge appears next to each instructor's name.
+1. Sign in to UAccess.
+2. Open Class Search and search for a course.
+3. Wait for a rating badge to appear beside each listed instructor.
 
-Pin the extension for easier access: click the puzzle-piece icon in Chrome's
-toolbar, then the pin next to "UofA Prof Insights".
+For quick access, open Chrome's extensions menu and pin UofA Prof Insights.
 
----
+## Using the extension
 
-## Using it
+| Badge        | Meaning                                                 |
+| ------------ | ------------------------------------------------------- |
+| Green ★ 4.2  | Rating of 3.5 or higher                                 |
+| Amber ★ 3.0  | Rating from 2.5 to 3.4                                  |
+| Red ★ 1.8    | Rating below 2.5                                        |
+| Grey **N/A** | No matching profile or no ratings yet                   |
+| Red **?**    | Rate My Professors could not be reached; click to retry |
 
-**Rating badges** appear next to instructor names, colored by rating:
+The number in parentheses is the number of ratings behind the average. A high
+score based on a few reviews carries less evidence than one based on hundreds.
 
-| Badge        | Meaning                                                |
-| ------------ | ------------------------------------------------------ |
-| Green ★ 4.2  | 3.5 and above                                          |
-| Amber ★ 3.0  | 2.5 – 3.4                                              |
-| Red ★ 1.8    | Below 2.5                                              |
-| Grey **N/A** | No RateMyProfessor page, or no ratings yet             |
-| Red **?**    | Couldn't reach RateMyProfessor — **click it to retry** |
+Click a badge to view difficulty, retake percentage, common tags, recent course
+ratings, and a link to the professor's profile. Press Escape, click elsewhere,
+or click the same badge again to close the card.
 
-The number in parentheses is how many ratings the average is based on. Treat a
-4.9 from 3 students with more caution than a 3.8 from 200.
+The rating filter appears above results with at least two sections. Co-taught
+sections remain visible when any instructor meets the selected threshold. Use
+**Keep unrated** to control sections taught by Staff or instructors without a
+rating.
 
-**Click a badge** for the full card: difficulty, "would take again" percentage,
-the most common tags, and a link to the RateMyProfessor page. **Refresh** in the
-card's corner refetches if the data looks stale. Press **Escape** or click
-elsewhere to close.
-
-**The rating filter** sits above the results. Pick a threshold (2.5+, 3.5+, 4+)
-and sections taught by lower-rated instructors are hidden, with a count of
-what's left. A section co-taught by someone good stays visible. Untick **Keep
-unrated** to also hide "Staff" sections and instructors with no RMP page.
-
-**A BEST pill** marks the highest-rated instructor on the page. Hover any badge
-and its tooltip says where that professor ranks among the rated instructors in
-front of you.
-
-**The toolbar popup** has a search box for looking up any professor directly,
-plus your cache stats and settings.
+The toolbar popup provides manual search, recent views, settings, and local data
+controls.
 
 ## Settings
 
-Click the extension icon, then the **Settings** tab:
-
-| Setting                        | What it does                                                           |
-| ------------------------------ | ---------------------------------------------------------------------- |
-| **Show ratings automatically** | Off leaves UAccess completely untouched; use the popup search instead. |
-| **Show rating filter**         | Off hides the filter controls above the results.                       |
-| **Keep ratings for**           | Days before a rating is re-fetched. Default 7, range 1–90.             |
-
-Settings also holds **Clear cache** (forget all stored ratings) and **Clear
-history** (forget recently viewed professors and usage counts).
-
----
+| Setting                        | Purpose                                    |
+| ------------------------------ | ------------------------------------------ |
+| **Show ratings automatically** | Enable or disable badges in UAccess        |
+| **Show rating filter**         | Show or hide section filter controls       |
+| **Keep ratings for**           | Choose a cache duration from 1 to 90 days  |
+| **Clear cache**                | Remove stored professor ratings            |
+| **Clear history**              | Remove recent views and local usage counts |
 
 ## Troubleshooting
 
-**No badges appear.**
-Confirm you're on a class search results page — the extension only runs on
-UAccess and only touches instructor names. Check that "Show ratings
-automatically" is on in Settings. If it's still blank, reload the page; UAccess
-sometimes renders results before the extension is ready.
+### No badges appear
 
-**Badges show `?`.**
-RateMyProfessor was unreachable. Click the badge to retry. If every badge shows
-`?`, RMP may be down or your network may be blocking it.
+Confirm that you are viewing class search results and that **Show ratings
+automatically** is enabled. Reload the UAccess page after installing or updating
+the extension. The Settings tab also includes **Diagnose this page**, which can
+confirm whether the content script detected instructor fields.
 
-**Badges show `N/A`.**
-That instructor has no RateMyProfessor page, or has a page with no ratings.
-Common for new faculty, TAs, and anyone listed as "Staff". This is expected, not
-a bug.
+### A badge shows `?`
 
-**A rating looks wrong for the person I know.**
-The extension only accepts an exact first-and-last-name match, but
-RateMyProfessor has duplicate and misspelled profiles — some professors have two
-pages with different ratings. Click through to RMP to check. Note that
-"Rick Mercer" and "Richard Mercer" are treated as different people, because at
-UofA they genuinely are.
+The request failed. Click the badge to retry. If every badge fails, Rate My
+Professors may be unavailable or blocked by the current network.
 
-**Ratings look out of date.**
-Ratings are cached for 7 days by default. Open a professor's card and click
-**Refresh** for one, or use **Clear cache** in the popup for all of them.
+### A badge shows `N/A`
 
-**It stopped working after I restarted Chrome.**
-Almost always means the extension folder moved or was deleted. Re-check Step 1,
-then reload the extension at `chrome://extensions`.
+The instructor has no matching Rate My Professors profile or has not received
+ratings. This is common for new faculty, teaching assistants, and Staff entries.
 
----
+### A rating appears out of date
 
-## Privacy
+Ratings are cached for seven days by default. Open the detail card and select
+**Refresh**, or clear the full cache from Settings.
 
-- Nothing about you is collected, stored, or transmitted anywhere.
-- The extension talks to exactly one external service: RateMyProfessors.com, to
-  look up the instructor names shown on your screen. Nothing else is sent.
-- Cached ratings, recently viewed professors and usage counts live only in your
-  own browser. Settings has buttons to erase both.
-- It runs only on UAccess pages, and reads only instructor names — it cannot see
-  your grades, schedule, financial aid, or anything else in your account.
-- It requests no permission to read or change data on other websites.
+### The extension disappeared after a restart
 
-Full details: [PRIVACY.md](PRIVACY.md).
+The extracted folder was probably moved or deleted. Restore it to a permanent
+location, return to `chrome://extensions`, and load it again.
 
-## Fair warning
+## Privacy note
 
-RateMyProfessor ratings are self-selected: students with strong opinions rate
-more often than satisfied ones. A rating built on a handful of reviews says very
-little. Use this as one input alongside the syllabus, degree requirements, and
-people who've actually taken the course.
+The extension sends instructor names to Rate My Professors to retrieve public
+ratings. It has no account, analytics, advertising, or developer-operated
+server. Cached ratings, settings, recent views, and usage counts stay in local
+browser storage. See [PRIVACY.md](PRIVACY.md) for the complete policy.
+
+Rate My Professors ratings are self-selected feedback. Use them alongside the
+syllabus, degree requirements, and advice from students who took the course.

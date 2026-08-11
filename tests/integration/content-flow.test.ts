@@ -16,10 +16,10 @@ const EMPTY_USAGE = {
 
 /**
  * End-to-end exercise of the content script against the exact UAccess markup
- * supplied for Phase 1: detect -> inject -> message the service worker ->
+ * used by UAccess: detect -> inject -> message the service worker ->
  * update the badge.
  *
- * This is the automated stand-in for the manual browser pass in Step 7. It
+ * This complements the real-browser verification. It
  * covers everything except real rendering: jsdom applies no layout or CSS, so
  * "the badge doesn't break the results grid" still needs human eyes in Chrome.
  */
@@ -189,7 +189,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('content script — classic UAccess', () => {
+describe('content script: classic UAccess', () => {
   it('badges the instructor and resolves it to a rating', async () => {
     document.body.innerHTML = CLASSIC_HTML;
     const send = installRuntime(async (m) => ({
@@ -235,7 +235,7 @@ describe('content script — classic UAccess', () => {
   });
 });
 
-describe('content script — new Student Center', () => {
+describe('content script: new Student Center', () => {
   it('badges the instructor and resolves it', async () => {
     document.body.innerHTML = NEW_HTML;
     const send = installRuntime(async (m) => ({
@@ -266,7 +266,7 @@ describe('content script — new Student Center', () => {
   });
 });
 
-describe('content script — re-search', () => {
+describe('content script: re-search', () => {
   it('drops stale badges and badges the new results', async () => {
     document.body.innerHTML = CLASSIC_HTML;
     installRuntime(async (m) => ({
@@ -308,7 +308,7 @@ describe('content script — re-search', () => {
   });
 });
 
-describe('content script — error handling', () => {
+describe('content script: error handling', () => {
   it('shows the error state when the service worker returns ERROR', async () => {
     document.body.innerHTML = CLASSIC_HTML;
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -416,7 +416,7 @@ describe('content script — error handling', () => {
   });
 });
 
-describe('content script — settings', () => {
+describe('content script: settings', () => {
   it('does not touch the page when autoDetect is off', async () => {
     document.body.innerHTML = CLASSIC_HTML;
     const send = installRuntime(
@@ -434,36 +434,9 @@ describe('content script — settings', () => {
     expect(document.querySelectorAll('upi-badge')).toHaveLength(0);
     expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'LOOKUP_PROFESSOR' }));
   });
-
-  /**
-   * There used to be a panel pinned to the right edge ranking every instructor
-   * on the page. It was removed: on a class schedule it ranks sections you are
-   * already enrolled in and cannot change, and most of its rows read "No RMP
-   * match", so it spent a third of the screen saying nothing. The badges
-   * already carry the ranking via the BEST pill.
-   */
-  it('never pins a panel to the edge of the page', async () => {
-    document.body.innerHTML = `
-      <table id="CLASS_SRCH_WRK2_STRM$scroll$0">
-        <tr><th id="CLASS_SRCH_WRK2_STRM_INSTRUCTOR$0">Instructor</th></tr>
-        <tr><td id="MTG_INSTR$0">Mercer, Richard</td></tr>
-        <tr><td id="MTG_INSTR$1">Debray, Saumya</td></tr>
-      </table>`;
-    installRuntime(async (m) => {
-      const { name } = m as { name: string };
-      return { type: 'PROFESSOR_RESULT', name, data: professor({ name }) };
-    });
-
-    await loadContentScript();
-    await flush();
-
-    expect(document.querySelectorAll('upi-sidebar')).toHaveLength(0);
-    // And nothing narrowed the page to make room for one.
-    expect(document.body.style.paddingRight).toBe('');
-  });
 });
 
-describe('content script — retry and refresh', () => {
+describe('content script: retry and refresh', () => {
   it('refetches when an errored badge is clicked', async () => {
     document.body.innerHTML = CLASSIC_HTML;
     vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -610,7 +583,7 @@ describe('content script — retry and refresh', () => {
     await flush();
     // Chrome re-injecting the content script into the same page. Each load gets
     // its own module graph, so badges from the first are strangers to the
-    // second — click one the current instance actually owns.
+    // second. Click one the current instance actually owns.
     await loadContentScript();
     await flush();
     send.mockClear();
@@ -627,7 +600,7 @@ describe('content script — retry and refresh', () => {
   });
 });
 
-describe('content script — detail card', () => {
+describe('content script: detail card', () => {
   it('opens a card when a resolved badge is clicked', async () => {
     document.body.innerHTML = CLASSIC_HTML;
     installRuntime(async (m) => ({

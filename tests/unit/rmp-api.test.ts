@@ -10,7 +10,7 @@ import {
 import { normalizeCourseCode } from '@shared/utils';
 import { UOFA_SCHOOL_ID } from '@shared/constants';
 
-/** Shape mirrors the live response recorded during Phase 0. */
+/** Shape mirrors the live API response. */
 function teacher(patch: Record<string, unknown> = {}) {
   return {
     id: 'VGVhY2hlci0xMjMwMg==',

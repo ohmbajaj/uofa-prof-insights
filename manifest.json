@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "UofA Prof Insights",
   "version": "1.0.0",
-  "description": "See RateMyProfessor ratings directly in UAccess while browsing and registering for classes.",
+  "description": "View Rate My Professors ratings while browsing classes in UAccess.",
   "permissions": ["storage"],
   "host_permissions": [
     "https://www.ratemyprofessors.com/*",

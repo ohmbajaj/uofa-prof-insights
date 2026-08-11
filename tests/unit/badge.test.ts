@@ -76,7 +76,7 @@ describe('UPIBadge rendering', () => {
 
     expect(text(badge)).toBe('N/A');
     expect(background(badge)).toBe(COLOR_UNKNOWN);
-    expect(badge.title).toContain('No RateMyProfessor match');
+    expect(badge.title).toContain('No Rate My Professors match');
   });
 
   it('shows ? on a red background in the error state', () => {

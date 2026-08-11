@@ -16,7 +16,7 @@ import {
  *   "Staff"          -> "Staff"   (no comma: passed through unchanged)
  *
  * Only the first token after the comma is kept, which drops middle names and
- * middle initials — RMP's search does better with "John Smith" than with
+ * middle initials. RMP's search does better with "John Smith" than with
  * "John A Smith".
  */
 export function normalizeNameForRMP(uaccessName: string): string {
@@ -37,9 +37,9 @@ export function normalizeNameForRMP(uaccessName: string): string {
 /**
  * How a page writes instructor names, which decides what a comma means.
  *
- * `surname-first` — classic class search: one name as "Mercer, Richard".
- * `natural-list`  — Class Schedule cards: several already-natural names in one
- *                   string, "Ratchaneekorn Thamvichai, Na Liu".
+ * `surname-first`: classic class search, one name as "Mercer, Richard".
+ * `natural-list`: Class Schedule cards, several already-natural names in one
+ * string, "Ratchaneekorn Thamvichai, Na Liu".
  *
  * The two are genuinely ambiguous as strings, and guessing gets it wrong:
  * reading the second as surname-first yields "Na Thamvichai", a person who
@@ -105,4 +105,31 @@ export function normalizeCourseCode(raw: string | null | undefined): string | nu
  */
 export function normalizeCacheKey(name: string): string {
   return `uofa:${name.toLowerCase().replace(/[^a-z]/g, '_')}`;
+}
+
+/**
+ * Rough age of a timestamp, for "cached 3 days ago" style labels.
+ *
+ * Shared by the in-page card and the popup's recents list so the two never
+ * drift into describing the same instant differently.
+ */
+export function formatAge(since: number, now = Date.now()): string {
+  const minutes = Math.floor((now - since) / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(hours / 24);
+  return days === 1 ? '1 day ago' : `${days} days ago`;
+}
+
+/** Compact duration for the popup's cache stats: "<1h", "6h", "3d". */
+export function formatDuration(ms: number): string {
+  if (ms <= 0) return 'N/A';
+  const hours = Math.floor(ms / 3_600_000);
+  if (hours < 1) return '<1h';
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
 }

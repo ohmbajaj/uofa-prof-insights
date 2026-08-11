@@ -2,16 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { MAX_CACHE_TTL_DAYS, MIN_CACHE_TTL_DAYS } from '@shared/constants';
 import { sendMessage } from '@shared/messaging';
 import type { ExtensionSettings } from '@shared/types';
+import { formatDuration } from '@shared/utils';
 import Diagnostics from '../components/Diagnostics';
-
-/** Whole days, since the cache TTL is expressed in days. */
-function formatAge(ms: number): string {
-  if (ms <= 0) return '—';
-  const hours = Math.floor(ms / 3_600_000);
-  if (hours < 1) return '<1h';
-  if (hours < 24) return `${hours}h`;
-  return `${Math.floor(hours / 24)}d`;
-}
 
 export default function Settings() {
   const [settings, setSettings] = useState<ExtensionSettings | null>(null);
@@ -167,11 +159,13 @@ export default function Settings() {
 
       <div className="stat-grid">
         <div className="stat">
-          <div className="stat__value">{cacheStats ? cacheStats.count : '—'}</div>
+          <div className="stat__value">{cacheStats ? cacheStats.count : 'N/A'}</div>
           <div className="stat__label">Professors cached</div>
         </div>
         <div className="stat">
-          <div className="stat__value">{cacheStats ? formatAge(cacheStats.oldestAge) : '—'}</div>
+          <div className="stat__value">
+            {cacheStats ? formatDuration(cacheStats.oldestAge) : 'N/A'}
+          </div>
           <div className="stat__label">Oldest entry</div>
         </div>
       </div>

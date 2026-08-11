@@ -1,300 +1,130 @@
-<img src="docs/screenshots/icon.png" width="72" align="right" alt="">
+<img src="docs/screenshots/icon.png" width="72" align="right" alt="UofA Prof Insights icon">
 
 # UofA Prof Insights
 
-**RateMyProfessor ratings inline in UAccess, so you can pick a section without
-leaving registration.**
+UofA Prof Insights is a Chrome extension that adds Rate My Professors data to
+University of Arizona class search results. Students can compare instructors,
+review course-specific ratings, and filter sections without leaving UAccess.
 
-A Chrome extension (Manifest V3) for University of Arizona students. It reads
-instructor names off the class search page, resolves them to the right
-RateMyProfessors profile, and renders ratings next to each section — plus the
-things a browser tab open on RateMyProfessors structurally cannot do: rank every
-instructor on the page against each other, break a rating down by course, and
-hide sections below a threshold.
+[Installation](INSTALL.md) · [Privacy](PRIVACY.md) · [License](LICENSE)
 
-[Install](INSTALL.md) · [Privacy](PRIVACY.md) · 424 tests · verified as a side-loaded extension
-
-> **Distributed by zip, not through the Chrome Web Store.** The extension reads
-> RateMyProfessors through a private API and carries the university's name, so a
-> public listing under an individual's name is not a trade worth making for an
-> audience of classmates. [STORE.md](STORE.md) keeps the prepared listing and the
-> reasoning.
-
-![Rating badges, detail card and rating filter in UAccess class search](docs/screenshots/uaccess.png)
-
-_Badges sit inside the Instructor column; the card breaks the rating down by
-course and discloses duplicate profiles; the filter hides sections below a
-rating you choose._
+![UofA class search with instructor rating badges, a rating filter, and professor details](docs/screenshots/uaccess.png)
 
 <table>
 <tr>
-<td width="50%"><img src="docs/screenshots/popup.png" alt="Popup Status tab"></td>
-<td width="50%"><img src="docs/screenshots/settings.png" alt="Popup Settings tab"></td>
+<td width="50%"><img src="docs/screenshots/popup.png" alt="Extension popup showing professor search and recent results"></td>
+<td width="50%"><img src="docs/screenshots/settings.png" alt="Extension settings and local data controls"></td>
 </tr>
 </table>
 
-## Why not just Google the professor?
+## Features
 
-For one professor, this saves about fifteen seconds. That is not the argument.
-
-**Googling is often wrong, invisibly.** UAccess lists an instructor as
-"Mercer, Richard". The top RateMyProfessors result for that name is a
-**Richard Mercer at Wright State University in Ohio, with 63 ratings** — nothing
-on the page tells a student they are reading about the wrong person. Meanwhile
-UofA's Computer Science department has three Mercers, and the profile carrying
-this professor's 164 ratings is filed under "**Rick**".
-
-Beyond correctness, three things only work from inside the results page:
-
-- **A class search returns 8–20 instructors.** Checking each by hand means
-  losing your place in the results, twenty times, during a registration window
-  where seats disappear in minutes.
-- **The question is comparative** — "which of these eight", not "is this one
-  good". Nobody holds eight ratings in their head.
-- **Course-specific ratings.** A professor can be strong in a survey course and
-  punishing in a seminar. Getting that from the website means reading 164
-  reviews by hand.
-
-## Status
-
-**Feature complete, verified in Chrome, and packaged.** 424 tests pass, the
-built bundle is exercised in real headless Chrome (see
-[Browser verification](#browser-verification)), and `npm run package` produces a
-Chrome Web Store-ready zip. The remaining unknown is live UAccess markup, which
-needs a NetID login.
+- Rating badges beside instructors in classic and modern UAccess layouts
+- A detail card with difficulty, retake rate, tags, and recent course ratings
+- Section filtering by minimum instructor rating
+- A BEST marker for the highest-rated instructor in the current results
+- Strict university and name matching with duplicate-profile disclosure
+- Manual professor search, recent views, cache controls, and page diagnostics
+- Local storage only, with no accounts, analytics, ads, or tracking
 
 ## How it works
 
+The content script detects instructors in known UAccess layouts and uses a
+conservative structural fallback for unfamiliar layouts. It asks the extension
+service worker for each instructor, then renders isolated UI components inside
+shadow roots so UAccess styles cannot interfere with them.
+
+```text
+UAccess page -> instructor detector -> content script -> service worker
+                                                      -> local cache
+                                                      -> Rate My Professors API
 ```
-detector-classic.ts ─┐
-                     ├─> detector.ts ──> injector.ts ──> Badge  <upi-badge>
-detector-new.ts    ──┘   (MutationObserver,  (dedupes,       │  click
-                          250ms debounce)     prunes stale)  └─> Card <upi-card>
-                                     │
-                                     └─> filter-controller ──> <upi-filter>
-                                                               (2+ sections)
-       index.ts ──chrome.runtime.sendMessage──> service-worker ──> cache ──> rmp-api
-       popup/  ──────────────────────────────────────┘
-```
 
-Both detectors run on every pass; each is a scoped `querySelectorAll` that
-returns nothing on the other layout, so no page sniffing is needed and a hybrid
-page is still covered.
+Rate My Professors search results are fuzzy, so the extension does not trust the
+first result. It searches within the University of Arizona, compares names
+locally, recognizes common nickname forms, and ranks duplicate profiles by the
+amount of rating evidence available. Typed popup searches may use approximate
+matching, while names read directly from UAccess stay strict.
 
-## Features
+## Technical highlights
 
-- **Inline badges** next to every instructor, colored by rating.
-- **Detail card** on badge click: rating, difficulty, would-retake, top tags,
-  and a link to the RMP page. One card at a time; closes on Escape, outside
-  click, or a second click on the same badge.
-- **Rating filter** above the results: hide sections whose instructor falls below
-  a threshold, with a live count. Co-taught sections survive if any instructor
-  passes; "Staff" rows count as unrated.
-- **Per-course ratings** on the card, with the course being browsed pinned first
-  — derived from review data the tags query already downloaded.
-- **Duplicate-profile disclosure.** Where two RMP profiles look like the same
-  person, the better-evidenced one is shown and the others are listed.
-- **Page ranking.** Each badge knows its standing among the rated instructors on
-  the page: the top pick gets a BEST pill, and every badge's tooltip says where
-  its professor placed.
-- **Popup** with a manual professor search, recently viewed professors, a
-  local-only usage tally, and settings.
-- **Retry and refresh.** An errored badge refetches when clicked, and the card's
-  Refresh button re-pulls a stale record. Both bypass the cache via
-  `REFRESH_PROFESSOR`, since a failed lookup is deliberately never cached and a
-  plain lookup would just replay the failure.
-- **Idempotent injection.** A second content-script injection into the same page
-  tears down the first, so re-injection cannot double-register listeners or
-  observers.
+- Manifest V3 extension built with TypeScript, React, Vite, and CRXJS
+- Three layout detectors for classic PeopleSoft tables, Student Center panels,
+  and structurally inferred class cards
+- `chrome.storage.local` cache with configurable expiry, schema versioning, and
+  bounded eviction
+- Course summaries derived from recent review records already returned by the
+  API, avoiding extra requests
+- Unit and integration coverage for matching, caching, injection, filtering,
+  popup behavior, and layout-specific DOM handling
+- Browser verification against the production bundle in headless Chrome, plus
+  a separate side-loaded extension check in Edge or Chromium
 
-All in-page UI is shadow-DOM encapsulated, so PeopleSoft's stylesheets cannot
-reach in and our styles cannot leak out.
+## Accuracy decisions
 
-## Engineering problems worth writing down
+Several implementation details prevent plausible but incorrect ratings:
 
-Five findings that changed the design, each verified against the live API rather
-than assumed.
+- The University of Arizona is `School-1402` in Rate My Professors. The commonly
+  copied `School-1075` identifier belongs to UCLA.
+- Surname searches produce a better candidate pool than full-name searches for
+  this API. Final matching still happens locally.
+- Rating fields use sentinel values such as `0` and `-1` for missing data. The
+  API adapter converts those values to `null` before they reach the UI.
+- Classic UAccess tables use `colspan`, so the detector resolves logical grid
+  columns instead of relying on raw child indexes.
+- Multiple instructors in one section are handled independently, while the
+  filter keeps a co-taught section when any instructor meets the threshold.
 
-### 1. The school ID everyone cites is UCLA
+## Local development
 
-`U2Nob29sLTEwNzU=` (base64 `School-1075`) is widely quoted as University of
-Arizona. It is **UCLA**. It fails silently: a search for "Rick Mercer" returns
-"Rick Miller, Geography, UCLA" — plausible-looking data from the wrong
-university. UofA is `School-1402`.
-
-### 2. Searching a full name buries the person you want
-
-RMP ranks results by _given_ name. Querying `"Richard Mercer"` returns ten
-unrelated Richards from across campus and **omits every Mercer**. Querying
-`"Mercer"` returns exactly the three. Lookups therefore search by surname and
-match locally, falling back to the full name only when a surname page comes back
-empty or truncated.
-
-### 3. A given name maps to a set, not a canonical form
-
-The first version of the nickname table kept one binding per short form, which
-mapped "Rick" to Frederick purely because it sorted earlier — so Rick never
-matched Richard, the exact case the table existed for. Pat/Patrick and
-Steve/Stephen broke the same way. Names now resolve to the _set_ of formal names
-they could stand for, and two names match when those sets intersect. The
-relation is deliberately not transitive: Pat matches both Patrick and Patricia,
-which never match each other.
-
-### 4. Rating fields use sentinels, and the tags field is a lie
-
-`avgRating` is `0` for unrated professors and `wouldTakeAgainPercent` is `-1`
-for "no data" — both mapped to `null`, while a genuine `0%` is preserved.
-`Teacher.teacherRatingTags` returns an empty array even on a direct node lookup;
-tags have to be tallied client-side from a `--`-delimited string on individual
-ratings. That same query already carried each review's course and scores, which
-is where the per-course breakdown comes from at no extra cost.
-
-### 5. A colspan in the results grid shifts the instructor column
-
-UAccess merges "Start/End Date" and "Days & Times" into one `colspan="2"` cell,
-so the instructor `<td>` sits one index left of its `<th>`. Walking raw child
-indexes lands on Units and badges every row with "4.000". Column resolution
-accounts for colspan and accepts only `<td>`.
-
-A sixth was caught only by looking at a screenshot: a `position: fixed`
-comparison panel **covered the Instructor column** — the column the badges
-attach to — while every overflow assertion passed, because a fixed element
-overlays content instead of extending the page. Reserving room for it by
-narrowing the body fixed that and caused a worse one on the Student Center,
-where the panel covered nothing and the reflow moved the whole page. The panel
-was removed; the ranking it provided now rides on the badges.
-
-## Commands
+Requirements: Node.js `^20.19.0` or `>=22.12.0`, npm, and Chrome or Edge for
+browser verification.
 
 ```bash
-npm run dev         # Vite + CRXJS dev server with HMR
-npm run build       # production build into dist/
-npm run package     # build, then zip to release/ for the Web Store
-npm run icons       # regenerate src/assets/icon-*.png from source
-npm test            # unit tests (offline, deterministic)
-npm run test:live   # hits the real RMP API — run after any RMP schema change
-npm run verify:browser  # drives the built bundle in real headless Chrome
-npm run typecheck   # tsc --noEmit, strict
-npm run check       # typecheck + lint + format:check + test
+git clone https://github.com/ohmbajaj/uofa-prof-insights.git
+cd uofa-prof-insights
+npm install
+npm run build
 ```
 
-Load the unpacked extension from `dist/` via `chrome://extensions` →
-"Load unpacked".
+Load `dist/` from `chrome://extensions` using **Load unpacked**.
 
-### Releasing
+### Commands
 
-1. Bump `version` in **both** `manifest.json` and `package.json` — `npm run
-package` refuses to build if they disagree, since the store rejects a
-   mismatch.
-2. `npm run check` to gate.
-3. `npm run package` → `release/uofa-prof-insights-<version>.zip`.
-4. Upload that zip to the Chrome Web Store, or share it with
-   [INSTALL.md](INSTALL.md) for unpacked install.
+```bash
+npm run dev               # Start the CRXJS development server
+npm run build             # Create a production build in dist/
+npm run check             # Typecheck, lint, format-check, and test
+npm run test:live         # Check the current Rate My Professors API schema
+npm run verify:browser    # Exercise the built UI in headless Chrome
+npm run verify:extension  # Side-load the build in Edge or Chromium
+npm run package           # Build a shareable zip in release/
+```
 
-The icons are generated from [scripts/generate-icons.mjs](scripts/generate-icons.mjs)
-— a rounded cardinal tile with a white star, rasterized by hand so no image
-library is needed. The packaging script writes the zip by hand for the same
-reason.
+The offline test suite is deterministic. `test:live` and `verify:extension`
+contact Rate My Professors and can fail if its private API changes or is
+temporarily unavailable.
 
-## Phase 0 findings
+## Current limitations
 
-These were all verified against the live API, and each one is load-bearing.
+- Final validation against live UAccess markup requires a University NetID.
+- The extension depends on an undocumented Rate My Professors GraphQL endpoint.
+  A schema or access-policy change may require an update.
+- Ratings are self-selected student feedback and should be one input among
+  course requirements, syllabi, and advice from students who took the class.
 
-### The UofA school ID is `School-1402`, not `School-1075`
+## Privacy and affiliation
 
-`U2Nob29sLTEwNzU=` (base64 `School-1075`) is **UCLA**. Querying it returns
-plausible-looking results from the wrong university — a search for "Rick Mercer"
-returns "Rick Miller, Geography, UCLA". The correct value is
-`U2Nob29sLTE0MDI=` (`School-1402`, Tucson, ~848 ratings).
+The extension has no backend and sends no usage analytics. Instructor names are
+sent to Rate My Professors to retrieve public rating data; settings, cache,
+recent views, and usage counts remain in the browser. See [PRIVACY.md](PRIVACY.md)
+for details.
 
-### UAccess is not served from `uaccess.arizona.edu`
+This independent project is not affiliated with, endorsed by, or sponsored by
+the University of Arizona or RateMyProfessors.com.
 
-That host is only the portal landing page. Class search and registration live on
-subdomains, which Chrome match patterns do **not** cover implicitly:
+The University of Arizona Block A is a registered trademark and is not covered
+by this project's MIT License. Distribution using the mark remains subject to
+the university's [trademark and licensing requirements](https://marcom.arizona.edu/brand-guidelines/logos).
 
-- `student.uaccess.arizona.edu`
-- `student851.uaccess.arizona.edu`
-- `studentcenter.arizona.edu`
-
-All four hosts are in the manifest, and the content script runs with
-`all_frames: true` because PeopleSoft renders into an iframe.
-
-### The teacher search is fuzzy
-
-A school-scoped search for "Rick Mercer" returns 10 hits, including "Dave Rick"
-and "Rick Yngve". `selectExactMatch()` therefore accepts only exact first+last
-matches. A looser rule (surname + first initial) would conflate the real,
-distinct UofA professors "Rick Mercer" and "Richard Mercer" — showing the wrong
-person's rating is worse than showing none. Ties break toward the profile with
-the most ratings, which handles RMP's duplicate and typo'd profiles.
-
-### Rating fields use sentinel values
-
-- `avgRating` / `avgDifficulty` are `0` for unrated professors — mapped to `null`
-- `wouldTakeAgainPercent` is `-1` for "no data" — mapped to `null`, while a
-  genuine `0` is preserved
-
-### `teacherRatingTags` is always empty
-
-Even on a direct `node(id:)` lookup. Top tags have to be tallied client-side
-from the `--`-delimited `ratingTags` string on individual ratings, via a second
-query. `fetchTopTags()` does this and degrades to `[]` rather than failing the
-whole lookup.
-
-## Browser verification
-
-jsdom has no layout engine, so the unit suites cannot answer the questions that
-matter most for an in-page extension. `npm run verify:browser` runs the **real
-built bundle** in **real headless Chrome** against mock UAccess markup, takes
-measurements from the live page, and writes a screenshot to
-`release/verify/uaccess-mock.png`.
-
-39 checks across three surfaces — the injected UAccess page, the popup's Status
-tab, and its Settings tab. It asserts, among other things, that custom elements
-upgrade, that badges stay inside their table cell, that row heights are
-identical before and after injection, that nothing overflows horizontally, that
-the extension leaves the page's own layout untouched, and that the popup renders
-its stored settings.
-
-Two real bugs came out of looking at that screenshot, both invisible to the
-numeric checks — and both in the comparison panel that has since been removed:
-
-- The `position: fixed` panel **covered the Instructor column** — the very
-  column the badges attach to. `horizontalOverflow` was false the whole time,
-  because a fixed element overlays content instead of extending the page.
-- Its name and subtitle **ran together on one line**, because the wrapper was an
-  inline `<span>`.
-
-The first of those is why a check now asserts the page's padding and scroll
-width are exactly what they were before injection.
-
-### Still needs a human
-
-- **Real UAccess ids.** Selectors come from the two supplied snippets; live
-  PeopleSoft may carry extra instance suffixes. This is the one thing the
-  harness cannot stand in for, since it needs a NetID login.
-- **Chrome's isolated world.** The harness loads the bundle as a plain module,
-  which exercises the same custom-element upgrade path but not the extension
-  isolated world specifically.
-- Whether real UAccess CSS interacts with the shadow roots in ways the mock
-  stylesheet doesn't reproduce.
-
-## Privacy
-
-Nothing about the user is collected or transmitted. The only outbound request is
-a professor's name to RateMyProfessors; cache, recents and usage counters live in
-`chrome.storage.local` and never leave the browser. Usage counters are
-deliberately local rather than server-side — the privacy claim is worth more than
-aggregate analytics. Full policy: [PRIVACY.md](PRIVACY.md).
-
-## Known gaps
-
-- **Multiple instructors per section** are supported (a `<br>`-separated cell
-  gets one badge per name), but each badge is looked up independently — there is
-  no "primary instructor" concept yet.
-- **TypeScript files are not linted.** typescript-eslint refuses to load against
-  TypeScript 7 (TS 6 only shipped as a beta, so downgrading isn't an option).
-  `npm run typecheck` covers the ground in the meantime. See
-  [eslint.config.js](eslint.config.js).
-- A deprecation warning from `@crxjs/vite-plugin` about `server.hmr.*` appears
-  during builds. It originates inside the plugin, not this config.
+Released under the [MIT License](LICENSE).

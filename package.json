@@ -1,14 +1,12 @@
 {
   "name": "uofa-prof-insights",
   "version": "1.0.0",
-  "description": "See RateMyProfessor ratings directly in UAccess while browsing and registering for classes.",
+  "description": "View Rate My Professors ratings while browsing classes in UAccess.",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
-    "icons": "node scripts/generate-icons.mjs",
     "package": "npm run build && node scripts/package.mjs",
     "verify:browser": "npm run build && node scripts/verify-browser.mjs",
     "verify:extension": "npm run build && node scripts/verify-extension.mjs",
@@ -19,8 +17,7 @@
     "test:watch": "vitest",
     "test:live": "vitest run --mode live tests/live",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "store:assets": "npm run build && node scripts/store-assets.mjs"
+    "format:check": "prettier --check ."
   },
   "keywords": [
     "chrome-extension",
@@ -28,8 +25,12 @@
     "ratemyprofessor",
     "university-of-arizona"
   ],
-  "author": "",
-  "license": "ISC",
+  "author": "Ohm Bajaj",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ohmbajaj/uofa-prof-insights.git"
+  },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.7.1",
     "@eslint/js": "^10.0.1",

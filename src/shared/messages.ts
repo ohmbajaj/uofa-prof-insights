@@ -4,7 +4,6 @@ import type { ExtensionSettings, ProfessorData, RecentProfessor, UsageStats } fr
 export type OutgoingMessage =
   /** `fuzzy` is for the popup's typed search only; badge lookups must stay strict. */
   | { type: 'LOOKUP_PROFESSOR'; name: string; fuzzy?: boolean }
-  | { type: 'LOOKUP_BATCH'; names: string[] }
   | { type: 'GET_CACHE_STATS' }
   | { type: 'CLEAR_CACHE' }
   | { type: 'REFRESH_PROFESSOR'; name: string }
@@ -18,16 +17,11 @@ export type OutgoingMessage =
 // Service Worker -> Content Script / Popup
 export type IncomingMessage =
   | { type: 'PROFESSOR_RESULT'; name: string; data: ProfessorData | null }
-  | { type: 'BATCH_RESULTS'; results: Record<string, ProfessorData | null> }
   | { type: 'CACHE_STATS'; stats: { count: number; oldestAge: number } }
   | { type: 'CACHE_CLEARED' }
   | { type: 'SETTINGS'; settings: ExtensionSettings }
   | { type: 'USAGE'; stats: UsageStats; recents: RecentProfessor[] }
   | { type: 'ERROR'; message: string };
 
-/** Narrowing helpers so handlers can switch exhaustively on `type`. */
-export type OutgoingMessageType = OutgoingMessage['type'];
-export type IncomingMessageType = IncomingMessage['type'];
-
-/** e.g. `MessageOfType<OutgoingMessage, 'LOOKUP_BATCH'>` -> `{ type: ...; names: string[] }`. */
+/** e.g. `MessageOfType<IncomingMessage, 'CACHE_CLEARED'>` -> `{ type: 'CACHE_CLEARED' }`. */
 export type MessageOfType<M extends { type: string }, T extends M['type']> = M & { type: T };

@@ -105,7 +105,7 @@ function harnessHtml(bundlePath) {
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>UAccess mock — verification harness</title>
+<title>UAccess mock verification harness</title>
 <style>
   /* Approximates PeopleSoft's own styling, including a couple of aggressive
      global rules that a naive badge implementation would inherit. */
@@ -126,7 +126,7 @@ function harnessHtml(bundlePath) {
 </head>
 <body>
 
-<h2>Classic UAccess</h2>
+<h2>UAccess Class Search</h2>
 <table id="CLASS_SRCH_WRK2_STRM$scroll$0">
   <tr>
     <th scope="col" id="CLASS_SRCH_WRK2_STRM_SUBJ_CATALOG_NBR$0">Class</th>
@@ -142,7 +142,8 @@ function harnessHtml(bundlePath) {
   ${CLASSIC_ROWS}
 </table>
 
-<h2>New Student Center</h2>
+<section id="modern-layout">
+<h2>Student Center</h2>
 <div id="CSCResult1" class="resultPanel collapsible">
   <div class="courseTitle">
     <div class="courseCode">CSC 110</div>
@@ -165,9 +166,12 @@ function harnessHtml(bundlePath) {
     </div>
   </div>
 </div>
+</section>
 
+<section id="measurements">
 <h2>Measurements</h2>
 <pre id="verify">running…</pre>
+</section>
 
 <script>
   // Row heights BEFORE the extension touches anything, for a layout diff.
@@ -199,7 +203,7 @@ function harnessHtml(bundlePath) {
     "Sean O'Brien": { rating: 4.6, difficulty: 2.1, wta: 92, n: 8, tags: ['Caring'] },
   };
 
-  // Minimal chrome.runtime stand-in — the service worker is not under test here.
+  // Minimal chrome.runtime stand-in; the service worker is not under test here.
   window.chrome = {
     runtime: {
       sendMessage: (message) => new Promise((resolve) => {
@@ -228,6 +232,12 @@ function harnessHtml(bundlePath) {
       }),
     },
   };
+
+  // The portfolio screenshot uses one layout. The full harness keeps both.
+  if (location.pathname === '/showcase') {
+    document.getElementById('modern-layout').remove();
+    document.getElementById('measurements').remove();
+  }
 </script>
 
 <script type="module" src="./${bundlePath}"></script>
@@ -258,7 +268,7 @@ function harnessHtml(bundlePath) {
   // row stay, because "Keep unrated" is on by default.
   const rowsAfterFilter = countVisibleRows();
 
-  // Now drop unrated sections too — that should leave O'Brien alone.
+  // Now drop unrated sections too. That should leave O'Brien alone.
   if (filterBar) {
     filterBar.shadowRoot.querySelector('input[type="checkbox"]').click();
     await sleep(120);
@@ -288,14 +298,8 @@ function harnessHtml(bundlePath) {
     upgraded: badges.filter((b) => b.shadowRoot !== null).length,
     constructorName: badges[0] ? badges[0].constructor.name : null,
     rendered: badges.map((b) => (b.shadowRoot?.querySelector('.badge')?.textContent ?? '').trim()),
-    /*
-     * The extension must not move the page around. The comparison panel used to
-     * be pinned to the right edge and the page was narrowed to make room for
-     * it; both are gone, so nothing may touch the body's padding and no
-     * instructor cell may end up covered.
-     */
+    // The extension must not alter the page's own layout.
     pageUntouched: document.body.style.paddingRight === '',
-    panelsPinnedToEdge: document.querySelectorAll('upi-sidebar').length,
     // Did any badge escape its cell? (a <tr>-parented badge would.)
     badgesInsideCell: badges.every((b) => b.closest('td') !== null || b.closest('.instructor') !== null),
     badgeFitsCell: badges.every((b) => {
@@ -323,7 +327,7 @@ function harnessHtml(bundlePath) {
       practicalFacts: [...(card.shadowRoot?.querySelectorAll('.facts li') ?? [])].map((n) => n.textContent.trim()),
       phrasesShown: [...(card.shadowRoot?.querySelectorAll('.phrase') ?? [])].map((n) => n.textContent.trim()),
     } : { opened: false },
-    // "BEST" must appear exactly once — on the top-rated instructor only.
+    // "BEST" must appear exactly once on the top-rated instructor.
     bestPills: badges.filter((b) => (b.shadowRoot?.textContent ?? '').includes('BEST')).length,
     bestPillOnTopRated: (() => {
       const withPill = badges.find((b) => (b.shadowRoot?.textContent ?? '').includes('BEST'));
@@ -340,7 +344,10 @@ function harnessHtml(bundlePath) {
     },
   };
 
-  document.getElementById('verify').textContent = JSON.stringify(report, null, 2);
+  const modernLayout = document.getElementById('modern-layout');
+  const measurements = document.getElementById('measurements');
+  if (modernLayout) modernLayout.hidden = true;
+  if (measurements) measurements.hidden = true;
   document.title = 'done';
 
   // POSTing beats scraping --dump-dom: no HTML-entity round-tripping, and the
@@ -447,7 +454,7 @@ ${css ? `<link rel="stylesheet" href="./${css}">` : ''}
 // ------------------------------------------------------------------- driver
 
 if (!existsSync(DIST)) {
-  console.error('dist/ not found — run `npm run build` first.');
+  console.error('dist/ not found. Run `npm run build` first.');
   process.exit(1);
 }
 
@@ -486,6 +493,7 @@ let currentPage = null;
  */
 const virtualPages = new Map([
   ['/harness', harnessHtml(bundle)],
+  ['/showcase', harnessHtml(bundle)],
   ['/popup', popupHtml(findPopupAssets(), 'status')],
   ['/settings', popupHtml(findPopupAssets(), 'settings')],
 ]);
@@ -525,7 +533,8 @@ const port = server.address().port;
 const url = `http://127.0.0.1:${port}/`;
 console.log(`serving: ${url}\n`);
 
-const shot = join(OUT, 'uaccess-mock.png');
+const shot = join(OUT, 'uaccess-verification.png');
+const showcaseShot = join(OUT, 'uaccess-mock.png');
 const popupShot = join(OUT, 'popup.png');
 const settingsShot = join(OUT, 'popup-settings.png');
 
@@ -573,10 +582,12 @@ async function runPage(page, screenshot, viewport) {
 }
 
 let report;
+let showcase;
 let popup;
 let settings;
 try {
-  report = await runPage('harness', shot, '1280,1000');
+  report = await runPage('harness', shot, '1280,720');
+  showcase = await runPage('showcase', showcaseShot, '1280,720');
   popup = await runPage('popup', popupShot, '420,640');
   settings = await runPage('settings', settingsShot, '420,560');
 } catch (error) {
@@ -603,8 +614,11 @@ if (report) {
     ['detail card opened', report.card.opened === true],
     ['card sits below its badge', report.card.belowAnchor === true],
     ['card stays within the viewport', report.card.withinViewport === true],
-    ['no panel pinned to the page edge', report.panelsPinnedToEdge === 0],
     ['the page was left exactly as found', report.pageUntouched === true],
+    [
+      'showcase contains the four visible class sections',
+      showcase?.badgeCount === 3 && showcase?.filter.rowsBeforeFilter === 4,
+    ],
 
     ['course breakdown rendered', (report.card.courseRows?.length ?? 0) > 0],
     ['browsed course pinned first', report.card.currentCourseFirst === true],
@@ -659,6 +673,7 @@ if (report) {
 
   console.log(`\nscreenshots:`);
   console.log(`  ${existsSync(shot) ? shot : '(uaccess mock not written)'}`);
+  console.log(`  ${existsSync(showcaseShot) ? showcaseShot : '(showcase not written)'}`);
   console.log(`  ${existsSync(popupShot) ? popupShot : '(popup not written)'}`);
   console.log(`  ${existsSync(settingsShot) ? settingsShot : '(settings not written)'}`);
   if (failed > 0) {

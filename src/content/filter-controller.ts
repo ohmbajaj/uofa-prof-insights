@@ -57,12 +57,6 @@ function hide(section: HTMLElement): void {
 }
 
 /**
- * Applies the filter and returns how many sections are visible.
- *
- * A section is hidden only when every instructor on it fails — a co-taught
- * section with one good instructor is still worth showing.
- */
-/**
  * Sibling sections in the same results container.
  *
  * Needed because a "Staff" or "To be Announced" row has no detected
@@ -77,7 +71,7 @@ function siblingSections(section: HTMLElement): HTMLElement[] {
 
   const children = [...parent.children] as HTMLElement[];
   if (section.tagName === 'TR') {
-    // Data rows only — a header row carries <th> and no <td>.
+    // Data rows only; a header row carries <th> and no <td>.
     return children.filter((el) => el.tagName === 'TR' && el.querySelector('td') !== null);
   }
   return children.filter((el) => el.classList.contains('classSection'));

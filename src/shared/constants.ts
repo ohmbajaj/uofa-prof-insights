@@ -1,16 +1,13 @@
 /**
- * University of Arizona (Tucson) — base64("School-1402"), RMP legacyId 1402.
+ * University of Arizona (Tucson), base64("School-1402").
  *
- * NOTE: the Phase 0 spec listed 'U2Nob29sLTEwNzU=' (base64 "School-1075") for
- * this value, but that id resolves to UCLA. Verified against the live API on
- * 2026-08-02: searching schools for "University of Arizona" returns
- * School-1402 (Tucson, AZ, ~848 ratings), and a teacher search scoped to it
- * correctly returns UofA faculty such as Rick Mercer (Computer Science).
+ * Widely-circulated snippets use 'U2Nob29sLTEwNzU=' (base64 "School-1075") for
+ * UofA. That id is UCLA, and it fails silently: queries scoped to it return
+ * plausible-looking professors from the wrong university. Verified against the
+ * live API on 2026-08-02, searching schools for "University of Arizona"
+ * returns School-1402 (Tucson, AZ, ~848 ratings).
  */
 export const UOFA_SCHOOL_ID = 'U2Nob29sLTE0MDI=';
-
-/** Kept for reference/testing — this is UCLA, NOT University of Arizona. */
-export const UCLA_SCHOOL_ID_DO_NOT_USE = 'U2Nob29sLTEwNzU=';
 
 export const RMP_GRAPHQL_ENDPOINT = 'https://www.ratemyprofessors.com/graphql';
 
@@ -22,7 +19,6 @@ export const RMP_PROFESSOR_URL_BASE = 'https://www.ratemyprofessors.com/professo
 
 export const DEFAULT_CACHE_TTL_DAYS = 7;
 export const MAX_CACHE_ENTRIES = 500;
-export const MAX_CONCURRENT_REQUESTS = 5;
 
 export const CACHE_STORAGE_KEY = 'upi_professor_cache';
 export const SETTINGS_STORAGE_KEY = 'upi_settings';
@@ -43,7 +39,7 @@ export const DEFAULT_SETTINGS = {
 export const MIN_CACHE_TTL_DAYS = 1;
 export const MAX_CACHE_TTL_DAYS = 90;
 
-/** Caps on the detail card's supplementary lists, to keep it a card and not a page. */
+/** Caps on the detail card's supplementary lists, so it stays a card and not a page. */
 export const MAX_COURSES_SHOWN = 4;
 export const MAX_ALTERNATES_SHOWN = 3;
 
@@ -78,8 +74,8 @@ export const SEARCH_PAGE_SIZE = 10;
 
 /**
  * Hosts that actually serve UAccess. `uaccess.arizona.edu` on its own is only
- * the portal landing page — class search and registration live on the
- * subdomains below, which Chrome match patterns do NOT cover implicitly.
+ * the portal landing page. Class search and registration live on the
+ * subdomains below, which Chrome match patterns do not cover implicitly.
  */
 export const UACCESS_HOSTS = [
   'uaccess.arizona.edu',

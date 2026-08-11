@@ -1,4 +1,3 @@
-import { MAX_CONCURRENT_REQUESTS } from '@shared/constants';
 import type { IncomingMessage, OutgoingMessage } from '@shared/messages';
 import type { ProfessorData } from '@shared/types';
 import { normalizeCacheKey, normalizeNameForRMP } from '@shared/utils';
@@ -13,30 +12,9 @@ import { searchProfessor } from './rmp-api';
  */
 const inFlight = new Map<string, Promise<ProfessorData | null>>();
 
-/** Runs `worker` over `items`, never exceeding `limit` in parallel. */
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  limit: number,
-  worker: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let cursor = 0;
-
-  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (cursor < items.length) {
-      const index = cursor++;
-      results[index] = await worker(items[index] as T);
-    }
-  });
-
-  await Promise.all(runners);
-  return results;
-}
-
 /**
  * Cache-first lookup for a single UAccess-formatted instructor name.
- * Returns null both for "no such professor" and for a failed fetch — callers
- * that need to tell those apart should use the thrown-error path in rmp-api.
+ * Returns null for both a missing professor and a failed fetch.
  */
 export async function lookup(
   rawName: string,
@@ -94,17 +72,6 @@ export async function handleMessage(message: OutgoingMessage): Promise<IncomingM
           name: message.name,
           data: await lookup(message.name, true),
         };
-
-      case 'LOOKUP_BATCH': {
-        const unique = [...new Set(message.names)];
-        const data = await mapWithConcurrency(unique, MAX_CONCURRENT_REQUESTS, (n) => lookup(n));
-
-        const results: Record<string, ProfessorData | null> = {};
-        unique.forEach((name, i) => {
-          results[name] = data[i] ?? null;
-        });
-        return { type: 'BATCH_RESULTS', results };
-      }
 
       case 'GET_CACHE_STATS':
         return { type: 'CACHE_STATS', stats: await cache.getStats() };

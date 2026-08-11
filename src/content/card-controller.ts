@@ -46,7 +46,7 @@ export function closeCard(): void {
 }
 
 /**
- * Closes the card if its badge has left the page — otherwise a new search
+ * Closes the card if its badge has left the page. Otherwise a new search
  * would leave a card floating with no anchor.
  */
 export function closeCardIfOrphaned(): void {
@@ -59,7 +59,7 @@ export function getOpenCard(): UPICard | null {
 
 /**
  * Pushes fresh data into the open card, but only when it is still showing the
- * same professor — a refresh that resolves after the user moved on must not
+ * same professor. A refresh that resolves after the user moved on must not
  * hijack whatever card they are looking at now.
  */
 export function updateOpenCard(name: string, data: ProfessorData | null): void {

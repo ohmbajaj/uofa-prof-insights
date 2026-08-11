@@ -1,15 +1,7 @@
 /**
- * Normalized professor record used across the whole extension.
- *
- * This is our own shape, deliberately decoupled from the RateMyProfessors
- * GraphQL response. `rmp-api.ts` is responsible for mapping RMP's raw node
- * (which uses sentinel values like `-1` / `0` for "no data") onto the
- * `number | null` fields below.
- */
-/**
  * How confidently the UAccess name was tied to this RMP profile.
- * `nickname` means the given names differ but are equivalent — "Rick" for
- * "Richard" — which is worth disclosing rather than hiding.
+ * `nickname` means the given names differ but are equivalent ("Rick" for
+ * "Richard"), which is worth disclosing rather than hiding.
  */
 export type MatchConfidence = 'exact' | 'nickname';
 
@@ -31,9 +23,9 @@ export interface AlternateProfile {
  * Ratings restricted to a single course.
  *
  * The headline average blends every course a professor has ever taught, which
- * can hide a wide spread — strong in a 100-level survey, punishing in a
- * graduate seminar. This is the number that actually answers "should I take
- * *this* section".
+ * can hide a wide spread: strong in a 100-level survey, punishing in a graduate
+ * seminar. This is the number that actually answers "should I take *this*
+ * section".
  *
  * Derived from the most recent TAG_SAMPLE_SIZE reviews, not the full history,
  * so these can legitimately differ from `overallRating` on both recency and
@@ -52,8 +44,8 @@ export interface CourseRating {
  *
  * Percentages are shares of the reviews that *answered* that question, not of
  * all reviews, and are null when nobody did. Phrases carry their mention count
- * so two mentions never read as a consensus. There is deliberately no
- * sentiment score — see reviews.ts.
+ * so two mentions never read as a consensus. There is deliberately no sentiment
+ * score; see reviews.ts.
  */
 export interface ReviewInsights {
   /** Share reporting attendance as mandatory, 0-100. */
@@ -64,10 +56,17 @@ export interface ReviewInsights {
   gradesReported: number;
   topGrade: string | null;
   phrases: { phrase: string; mentions: number }[];
-  /** Reviews the summary was built from — the recency sample, not all-time. */
+  /** Reviews used for the summary: the recent sample, not the full history. */
   reviewsRead: number;
 }
 
+/**
+ * Normalized professor record used across the whole extension.
+ *
+ * Deliberately decoupled from the RateMyProfessors GraphQL response.
+ * `rmp-api.ts` maps RMP's raw node, which uses sentinel values like `-1` and
+ * `0` for "no data", onto the `number | null` fields below.
+ */
 export interface ProfessorData {
   /** RMP's opaque global node id, e.g. "VGVhY2hlci0xMjMwMg==" (base64 "Teacher-12302"). */
   id: string;
@@ -104,8 +103,8 @@ export interface CacheEntry {
   expiresAt: number;
   /**
    * Shape of `data` when it was written. Entries stamped with an older version
-   * are discarded on read rather than migrated — they are a cheap refetch, and
-   * migrating would mean carrying every historical shape forever.
+   * are discarded on read rather than migrated. They cost one cheap refetch,
+   * whereas migrating would mean carrying every historical shape forever.
    */
   version: number;
 }
@@ -144,8 +143,8 @@ export interface RecentProfessor {
 /**
  * What the content script can see on a page, for troubleshooting.
  *
- * "No badges appeared" has two opposite causes — the script not running, or
- * the selectors not matching — and they are indistinguishable from outside.
+ * "No badges appeared" has two opposite causes, the script not running or the
+ * selectors not matching, and they are indistinguishable from outside.
  */
 export interface PageDiagnostics {
   url: string;

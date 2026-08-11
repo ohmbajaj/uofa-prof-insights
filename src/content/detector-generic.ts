@@ -5,9 +5,9 @@ import type { DetectedProfessor } from './detector';
 /**
  * Last-resort detector for UAccess layouts we have not seen.
  *
- * UAccess ships at least three different class views — the classic search
- * grid, the Student Center result panels, and the card-based Class Schedule —
- * and more will appear. The first two have dedicated detectors keyed on real
+ * UAccess ships several class views, including the classic search grid,
+ * Student Center result panels, and the card-based Class Schedule. The first
+ * two have dedicated detectors keyed on real
  * ids and classes. This one runs only when both find nothing, and infers
  * instructors from structure instead.
  *
@@ -24,7 +24,7 @@ import type { DetectedProfessor } from './detector';
  * a grey N/A rather than a wrong rating.
  */
 
-/** "ECE 201", "CSC 110", "MATH 223A" — a subject code followed by a number. */
+/** A subject code followed by a number, such as "ECE 201" or "CSC 110". */
 const COURSE_CODE = /\b[A-Z]{2,5}\s?\d{3}[A-Z]?\b/;
 
 /**
@@ -44,7 +44,7 @@ const PERSON_NAME =
  * "Academic Deadlines" are all two capitalised words with no digits, exactly
  * like "Rick Mercer". A candidate is rejected when *every* one of its words is
  * drawn from this list, which keeps labels and course titles out while leaving
- * real names — whose surnames are essentially never common English — intact.
+ * real names intact because surnames are rarely common interface words.
  */
 const UI_VOCABULARY = new Set(
   `academic add advanced advising aerospace aid algebra algorithms american analysis ancient
@@ -128,8 +128,8 @@ function sitsBesideACourseCode(element: HTMLElement): boolean {
  * Text runs that could be an instructor field, with the element holding them.
  *
  * Scans text nodes rather than elements. Modern UAccess renders an instructor
- * as an icon followed by a bare text node —
- * `<span><i class="icon-person"></i>Ratchaneekorn Thamvichai, Na Liu</span>` —
+ * as an icon followed by a bare text node:
+ * `<span><i class="icon-person"></i>Ratchaneekorn Thamvichai, Na Liu</span>`.
  * so reading whole elements works only when the name happens to sit in a
  * dedicated wrapper. A text node is the actual unit either way.
  */

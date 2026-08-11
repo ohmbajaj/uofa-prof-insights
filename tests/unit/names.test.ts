@@ -49,8 +49,8 @@ describe('parseInstructorField', () => {
 
   /**
    * The Class Schedule page lists several already-natural names in one field.
-   * Reading this as surname-first produces "Na Thamvichai" — a person who does
-   * not exist — which is exactly the failure this format flag prevents.
+   * Reading this as surname-first produces "Na Thamvichai", a person who does
+   * not exist. The format flag prevents that failure.
    */
   it('reads the schedule card as a list of natural-order names', () => {
     expect(parseInstructorField('Ratchaneekorn Thamvichai, Na Liu', 'natural-list')).toEqual([

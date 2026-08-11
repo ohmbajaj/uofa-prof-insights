@@ -1,5 +1,5 @@
 /**
- * Zips `dist/` into a Chrome Web Store upload at `release/<name>-<version>.zip`.
+ * Zips `dist/` into a shareable archive at `release/<name>-<version>.zip`.
  *
  * Writes the archive by hand (stored, no compression) so packaging needs no
  * dependencies. Chrome accepts stored entries, and the payload is ~200 KB.
@@ -17,7 +17,7 @@ const DIST = join(ROOT, 'dist');
 const RELEASE = join(ROOT, 'release');
 
 if (!existsSync(DIST)) {
-  console.error('dist/ not found — run `npm run build` first.');
+  console.error('dist/ not found. Run `npm run build` first.');
   process.exit(1);
 }
 
@@ -37,8 +37,8 @@ function walk(dir) {
 
 /**
  * Chrome refuses to load an unpacked extension containing any entry whose name
- * starts with `_` — those are reserved for `_locales` and `_metadata`. Zipping
- * around such a file would hide the fact that dist/ itself cannot be loaded,
+ * starts with `_`; those names are reserved for `_locales` and `_metadata`.
+ * Zipping around such a file would hide that dist/ itself cannot be loaded,
  * so this fails instead.
  */
 function assertNoReservedNames(files) {
@@ -122,8 +122,7 @@ async function buildZip(files) {
   return Buffer.concat([...locals, centralBuf, end]);
 }
 
-// The store rejects a build whose manifest version does not match what the
-// listing expects; catching the drift here is cheaper than a failed upload.
+// Keep the archive name and packaged manifest on the same version.
 if (manifest.version !== pkg.version) {
   console.error(
     `version mismatch: manifest.json is ${manifest.version}, package.json is ${pkg.version}`,
@@ -133,7 +132,7 @@ if (manifest.version !== pkg.version) {
 
 const files = walk(DIST);
 if (files.length === 0) {
-  console.error('dist/ is empty — run `npm run build` first.');
+  console.error('dist/ is empty. Run `npm run build` first.');
   process.exit(1);
 }
 assertNoReservedNames(files);

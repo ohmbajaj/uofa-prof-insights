@@ -1,4 +1,4 @@
-import { getRatingColor, normalizeCourseCode } from '@shared/utils';
+import { formatAge, getRatingColor, normalizeCourseCode } from '@shared/utils';
 import {
   COLOR_UNKNOWN,
   MAX_ALTERNATES_SHOWN,
@@ -171,24 +171,11 @@ const STYLES = `
 `;
 
 function fmtRating(value: number | null): string {
-  return value === null ? '—' : value.toFixed(1);
+  return value === null ? 'N/A' : value.toFixed(1);
 }
 
 function fmtPercent(value: number | null): string {
-  return value === null ? '—' : `${Math.round(value)}%`;
-}
-
-/** "3 days ago" style age for the cache timestamp. */
-export function formatAge(cachedAt: number, now = Date.now()): string {
-  const minutes = Math.floor((now - cachedAt) / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-
-  const days = Math.floor(hours / 24);
-  return days === 1 ? '1 day ago' : `${days} days ago`;
+  return value === null ? 'N/A' : `${Math.round(value)}%`;
 }
 
 /**
@@ -213,7 +200,6 @@ export class UPICard {
   #body: HTMLElement;
   #data: ProfessorData | null = null;
   #busy = false;
-  /** Course being browsed in UAccess, so its rating can be pinned to the top. */
   #courseCode: string | null = null;
 
   constructor(doc: Document = document) {
@@ -229,8 +215,6 @@ export class UPICard {
 
     this.#shadow.append(style, this.#body);
     this.el.setAttribute('role', 'dialog');
-
-    REGISTRY.set(this.el, this);
   }
 
   /** Mirrors the host element, so callers holding a card can treat it as one. */
@@ -260,10 +244,6 @@ export class UPICard {
 
   addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
     this.el.addEventListener(type, listener);
-  }
-
-  getAttribute(name: string): string | null {
-    return this.el.getAttribute(name);
   }
 
   get data(): ProfessorData | null {
@@ -296,17 +276,13 @@ export class UPICard {
     this.#render();
   }
 
-  close(): void {
-    this.el.remove();
-  }
-
   #render(): void {
     const doc = this.#doc;
     const data = this.#data;
     this.#body.replaceChildren();
     if (!data) return;
 
-    this.el.setAttribute('aria-label', `RateMyProfessor details for ${data.name}`);
+    this.el.setAttribute('aria-label', `Rate My Professors details for ${data.name}`);
     this.el.style.setProperty('--upi-rating-color', getRatingColor(data.overallRating));
 
     const close = doc.createElement('button');
@@ -316,7 +292,7 @@ export class UPICard {
     close.setAttribute('aria-label', 'Close');
     close.addEventListener('click', (event) => {
       event.stopPropagation();
-      this.close();
+      this.remove();
     });
 
     const header = doc.createElement('header');
@@ -353,7 +329,7 @@ export class UPICard {
       empty.className = 'empty';
       empty.textContent =
         data.numRatings === 0
-          ? 'No ratings on RateMyProfessor yet.'
+          ? 'No ratings on Rate My Professors yet.'
           : 'No tags for this professor.';
       this.#body.appendChild(empty);
     }
@@ -401,7 +377,7 @@ export class UPICard {
   /**
    * Per-course breakdown, with the course being browsed pinned to the top.
    *
-   * This is the number that answers the actual question — a professor can be
+   * This answers the course-level question. A professor can be
    * strong in a survey course and punishing in a seminar, and the headline
    * average hides that.
    */
@@ -436,7 +412,7 @@ export class UPICard {
       const right = doc.createElement('span');
       const score = doc.createElement('span');
       score.className = 'score';
-      score.textContent = course.rating === null ? '—' : course.rating.toFixed(1);
+      score.textContent = course.rating === null ? 'N/A' : course.rating.toFixed(1);
       score.style.setProperty('--course-color', getRatingColor(course.rating));
 
       const count = doc.createElement('span');
@@ -452,17 +428,10 @@ export class UPICard {
   }
 
   /**
-   * Other RMP profiles that look like the same person.
-   *
-   * Shown rather than hidden: RMP has no deduplication, and when we pick the
-   * better-evidenced of two profiles the user deserves to see that a choice was
-   * made and where the other numbers live.
-   */
-  /**
    * Course logistics: attendance, textbook, online delivery.
    *
-   * These answer questions a rating cannot — whether you can miss a lecture,
-   * whether you have to buy the book — and they come from the same rows the
+   * These cover details a rating cannot, such as whether attendance is required
+   * or the textbook is used. They come from the same rows the
    * tag tally already reads.
    */
   #renderPractical(data: ProfessorData): void {
@@ -516,7 +485,7 @@ export class UPICard {
    * Phrases students repeat, with how many said them.
    *
    * The count is shown deliberately: "3 mentions" reads very differently from
-   * a bare quote, and this is frequency, not sentiment — nothing here claims
+   * a bare quote. This is frequency, not sentiment; nothing here claims
    * to know whether a phrase was meant kindly.
    */
   #renderPhrases(data: ProfessorData): void {
@@ -572,7 +541,7 @@ export class UPICard {
       const rating = alt.overallRating === null ? 'unrated' : alt.overallRating.toFixed(1);
       const plural = alt.numRatings === 1 ? 'rating' : 'ratings';
       link.append(
-        doc.createTextNode(`${alt.name} — ${rating} `),
+        doc.createTextNode(`${alt.name}: ${rating} `),
         Object.assign(doc.createElement('span'), {
           className: 'why',
           textContent: `(${alt.numRatings} ${plural})`,
@@ -600,13 +569,4 @@ export class UPICard {
     wrapper.append(v, l);
     return wrapper;
   }
-}
-
-/** Host element -> card, so code holding only a DOM node can reach its state. */
-const REGISTRY = new WeakMap<HTMLElement, UPICard>();
-
-/** The card that owns `element`, if it is one of ours. */
-export function cardFromElement(element: Element | null | undefined): UPICard | null {
-  if (!element) return null;
-  return REGISTRY.get(element as HTMLElement) ?? null;
 }

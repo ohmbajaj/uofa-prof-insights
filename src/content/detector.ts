@@ -20,7 +20,7 @@ export interface DetectedProfessor {
    * Inferred from page structure rather than from a known selector.
    *
    * The generic detector guesses, and on real pages it will occasionally
-   * mistake a label for a name — "Instruction Mode" and "In Person" are both
+   * mistake a label for a name. "Instruction Mode" and "In Person" are both
    * two capitalised words with no digits. A speculative badge is therefore
    * removed when the lookup finds nobody, instead of settling on a grey N/A
    * beside something that was never a person. Badges from the classic and
@@ -44,15 +44,14 @@ export function detectProfessors(doc: Document): DetectedProfessor[] {
   if (known.length > 0) return known;
 
   // Neither known layout matched. Fall back to structural inference, which is
-  // how pages like Class Schedule — card-based, no recognisable ids — get
+  // how card-based pages such as Class Schedule get
   // covered without a dedicated detector for every UAccess view.
   return detectProfessorsGeneric(doc);
 }
 
 /**
  * `Node.ELEMENT_NODE` by value. The global `Node` constructor is not reliably
- * the same object across realms — an iframe document, or a MutationObserver
- * callback dispatched after teardown — so compare the numeric type instead.
+ * the same object across realms, so compare the numeric type instead.
  */
 const ELEMENT_NODE = 1;
 
@@ -70,9 +69,7 @@ function isOwnMutation(mutation: MutationRecord): boolean {
 /**
  * Watches `doc` for class-search results and reports detected instructors.
  *
- * Returns a stop function. (The spec called for `void`; a disposer costs
- * nothing, keeps tests from leaking observers between cases, and lets the
- * caller tear down cleanly.)
+ * Returns a stop function so callers can remove the observer and timer.
  *
  * On iframes: the manifest sets `all_frames: true`, so Chrome injects a
  * separate copy of this content script into the PeopleSoft target iframe,

@@ -7,7 +7,7 @@ import type { PageDiagnostics } from '@shared/types';
 /**
  * Reports what the content script can see on the current page.
  *
- * Exists because the failure that matters most — "no badges appeared" — is
+ * The common "no badges appeared" failure is
  * invisible from the outside, and its two causes need opposite fixes: the
  * script not running at all, versus the selectors not matching. Asking a user
  * to paste console output to tell those apart is a poor trade when the
@@ -42,7 +42,7 @@ function nearMisses(doc: Document, limit: number): PageDiagnostics['nearMisses']
   for (const { element, text } of candidateTextRuns(doc)) {
     if (out.length >= limit) break;
     // Two or more capitalised words. Deliberately looser than the detector's
-    // own test — the point is to show what was *nearly* accepted, including
+    // own test. The point is to show what was nearly accepted, including
     // single-letter initials.
     if (!/^[A-Z][\w'’-]*(?:[\s,]+[A-Z][\w'’-]*){1,4}$/.test(text)) continue;
     out.push({ text: text.slice(0, 80), path: describe(element) });

@@ -344,7 +344,7 @@ describe('ProfessorResult', () => {
     );
 
     expect(screen.getByText('N/A')).toBeTruthy();
-    expect(screen.getByText(/Difficulty —/)).toBeTruthy();
+    expect(screen.getByText(/Difficulty N\/A/)).toBeTruthy();
   });
 
   it('links to RMP safely', () => {

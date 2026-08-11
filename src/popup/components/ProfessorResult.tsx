@@ -2,11 +2,11 @@ import { getRatingColor } from '@shared/utils';
 import type { ProfessorData } from '@shared/types';
 
 function rating(value: number | null): string {
-  return value === null ? '—' : value.toFixed(1);
+  return value === null ? 'N/A' : value.toFixed(1);
 }
 
 function percent(value: number | null): string {
-  return value === null ? '—' : `${Math.round(value)}%`;
+  return value === null ? 'N/A' : `${Math.round(value)}%`;
 }
 
 export default function ProfessorResult({ data }: { data: ProfessorData }) {
@@ -43,7 +43,7 @@ export default function ProfessorResult({ data }: { data: ProfessorData }) {
         )}
 
         <a className="result__link" href={data.rmpUrl} target="_blank" rel="noopener noreferrer">
-          View on RateMyProfessor →
+          View on Rate My Professors →
         </a>
       </div>
     </div>

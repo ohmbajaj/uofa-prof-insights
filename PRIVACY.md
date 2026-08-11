@@ -1,92 +1,87 @@
-# Privacy Policy — UofA Prof Insights
+# Privacy Policy for UofA Prof Insights
 
-_Last updated: 5 August 2026 · Applies to version 1.0.0_
+Last updated: 12 August 2026. Applies to version 1.0.0.
 
-## The short version
+## Summary
 
-**This extension collects nothing about you.** There is no account, no server,
-no analytics, no tracking, and no advertising. Nothing you do is transmitted to
-the developer or to any third party.
+UofA Prof Insights does not require an account and does not include analytics,
+advertising, tracking, or a developer-operated server. The extension does not
+collect personal information from its users.
 
-The only network request it ever makes is to **RateMyProfessors.com**, to look
-up instructor names that are already displayed on the UAccess page you are
-viewing.
+To provide ratings, the extension sends instructor names displayed in UAccess
+to RateMyProfessors.com. All settings, cached ratings, recent views, and usage
+counts remain in Chrome's local extension storage.
 
-## What is sent off your device
+## Data sent to Rate My Professors
 
-Exactly one thing: **an instructor's name**, sent to RateMyProfessors.com to
-retrieve their public rating.
+The extension sends a professor name and the University of Arizona school
+identifier to `https://www.ratemyprofessors.com/graphql`. It uses the response
+to display public professor ratings and review summaries.
 
-For example, if UAccess shows a section taught by "Mercer, Richard", the
-extension asks RateMyProfessors for professors with the surname "Mercer" at the
-University of Arizona.
+The extension does not add a student identifier, course selection, class
+schedule, grade, or UAccess account information to this request. As with any web
+request, RateMyProfessors.com may receive standard network metadata such as the
+device's IP address and browser user agent. Its handling of that information is
+governed by the [Rate My Professors privacy policy](https://www.ratemyprofessors.com/privacy).
 
-Nothing else is included. The request carries no identifier for you, no
-information about which course you are viewing, and nothing about your account.
-RateMyProfessors receives what it would receive if you searched their website
-yourself, minus your identity.
+## Data stored in the browser
 
-Their handling of that request is governed by their own privacy policy:
-<https://www.ratemyprofessors.com/privacy>
+| Data                       | Purpose                                        | Removal                 |
+| -------------------------- | ---------------------------------------------- | ----------------------- |
+| Professor ratings          | Avoid repeated requests for the same professor | Settings: Clear cache   |
+| Recently viewed professors | Populate the popup's recent list               | Settings: Clear history |
+| Usage counts               | Show local lookup and badge totals             | Settings: Clear history |
+| Extension settings         | Remember user preferences                      | Uninstall the extension |
 
-## What is stored, and where
+Recent entries contain a professor's name, department, rating, rating count,
+profile link, and view time. They do not contain the course or section being
+viewed. Chrome does not sync this extension's local storage.
 
-All of it stays in your browser, in Chrome's local extension storage. None of it
-is synced, backed up, or sent anywhere.
+Uninstalling the extension removes its locally stored data.
 
-| Stored                     | Why                                             | Clear it                 |
-| -------------------------- | ----------------------------------------------- | ------------------------ |
-| Cached professor ratings   | Avoids refetching the same professor for 7 days | Settings → Clear cache   |
-| Recently viewed professors | The list on the popup's Status tab              | Settings → Clear history |
-| Usage counts               | The tally on the Status tab                     | Settings → Clear history |
-| Your settings              | Remembers your preferences                      | Reset by uninstalling    |
+## Access to UAccess pages
 
-The recently-viewed record holds only a professor's name, department, rating,
-rating count and RateMyProfessors link. It does **not** record which course or
-section you were looking at, so it cannot describe your schedule.
+The content script runs only on the UAccess hosts listed in `manifest.json`. It
+examines class-search structure and visible text locally to identify instructor
+names and nearby course codes. It does not transmit UAccess page content to the
+developer or to any analytics service.
 
-Uninstalling the extension deletes all of it.
+The extension does not intentionally read or store:
 
-## What it can and cannot see
+- NetID credentials or passwords
+- grades, transcripts, or GPA
+- enrolment and registration actions
+- financial aid or payment information
+- student identifiers or personal records
+- browsing activity outside the permitted UAccess pages
 
-The extension runs only on University of Arizona UAccess pages, and only reads
-**instructor names** from the class search results.
+The optional **Diagnose this page** tool creates a local report containing the
+page URL, page title, detector counts, instructor names, and short text samples
+that may help diagnose changed markup. The report is not transmitted. It is
+copied to the clipboard only when the user selects **Copy full report**.
 
-It cannot see, and never reads:
+## Permissions
 
-- your NetID, password, or any credential
-- your grades, transcript, or GPA
-- your class schedule, enrolment, or registration actions
-- your financial aid, bursar account, or payment details
-- your student ID number or any personal record
-- any other website you visit — it holds no permission to run anywhere else
+| Permission                           | Reason                                                                 |
+| ------------------------------------ | ---------------------------------------------------------------------- |
+| `storage`                            | Store settings, cached ratings, recent views, and usage counts locally |
+| `https://www.ratemyprofessors.com/*` | Retrieve public professor data                                         |
+| Listed UAccess hosts                 | Detect instructors and add rating controls to class results            |
 
-## Permissions, and why each exists
-
-| Permission                           | Reason                                                        |
-| ------------------------------------ | ------------------------------------------------------------- |
-| `storage`                            | Save the cache, settings and recents described above, locally |
-| `https://www.ratemyprofessors.com/*` | Fetch public ratings                                          |
-| UAccess hosts                        | Read instructor names and place badges on the page            |
-
-There is deliberately no `<all_urls>` permission, no `tabs` permission, and no
-ability to read or change data on any site other than UAccess.
+The extension does not request `<all_urls>`, browsing-history, or remote-code
+permissions.
 
 ## Children
 
-This extension is intended for university students and is not directed at
-children under 13. It collects no personal information from anyone.
+This extension is intended for university students and is not directed to
+children under 13. It does not collect personal information.
 
 ## Changes
 
-Any future change to what is collected or transmitted will be published here,
-with the version it applies to, before that version ships.
+Material changes to data handling will be documented here before the relevant
+version is released.
 
 ## Contact
 
-Questions or concerns: open an issue on the project's GitHub repository.
-
----
-
-**In one sentence:** the extension sends professor names to RateMyProfessors and
-keeps their ratings in your own browser — nothing about you goes anywhere.
+Questions or privacy concerns can be submitted through the project's GitHub
+issue tracker.

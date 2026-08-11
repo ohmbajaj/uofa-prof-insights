@@ -142,7 +142,7 @@ function badgeFor(name: string): UPIBadge | null {
  * Retry on an errored badge.
  *
  * The error tooltip tells the user to click, so the click has to actually
- * refetch — and it must bypass the cache, since a failed lookup is deliberately
+ * refetch and must bypass the cache, since a failed lookup is deliberately
  * never cached and a plain lookup would just replay the same failure.
  */
 function onBadgeClick(event: Event): void {
@@ -196,7 +196,7 @@ function onDetect(profs: DetectedProfessor[]): void {
   }
 
   for (const { badge, professor } of added) {
-    // Fire and forget — resolveBadge handles its own failures.
+    // resolveBadge handles its own failures.
     void resolveBadge(badge, professor.name, false, professor.speculative ?? false);
   }
 }
@@ -217,7 +217,7 @@ async function main(): Promise<void> {
     await loadSettings();
 
     if (!settings.autoDetect) {
-      console.info('[UPI] autoDetect is off — not scanning this page');
+      console.info('[UPI] autoDetect is off; not scanning this page');
       return;
     }
 
@@ -242,7 +242,7 @@ async function main(): Promise<void> {
  * Answers the popup's "Diagnose this page" request.
  *
  * Registered unconditionally, outside `main()`, so it still replies when
- * autoDetect is off or startup failed — those are exactly the cases someone
+ * autoDetect is off or startup failed. Those are the cases someone
  * would be diagnosing.
  */
 chrome.runtime?.onMessage?.addListener((message, _sender, sendResponse) => {
@@ -258,7 +258,7 @@ chrome.runtime?.onMessage?.addListener((message, _sender, sendResponse) => {
 
 /**
  * The manifest uses `run_at: document_idle`, which normally fires after
- * DOMContentLoaded — but not guaranteed on a slow document, so check first
+ * DOMContentLoaded, but not always on a slow document. Check first
  * rather than risk waiting for an event that already fired.
  */
 if (document.readyState === 'loading') {
@@ -268,7 +268,7 @@ if (document.readyState === 'loading') {
 }
 
 // Last-resort net: keep any stray async failure in our code from surfacing as
-// an unexplained page error. UAccess's own scripts are unaffected — this only
+// an unexplained page error. UAccess's own scripts are unaffected; this only
 // observes, and never calls preventDefault.
 window.addEventListener('unhandledrejection', (event) => {
   console.error('[UPI] unhandled promise rejection:', event.reason);

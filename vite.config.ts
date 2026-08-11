@@ -10,7 +10,7 @@ const srcPath = (dir: string) => fileURLToPath(new URL(`./src/${dir}`, import.me
 export default defineConfig({
   plugins: [react(), crx({ manifest: manifest as ManifestV3Export })],
   define: {
-    // Single source of truth for the version shown in the popup.
+    // Keep the popup version in sync with the manifest.
     __APP_VERSION__: JSON.stringify(manifest.version),
   },
   build: {
@@ -24,19 +24,7 @@ export default defineConfig({
     minify: !process.env.UPI_DEBUG,
     sourcemap: process.env.UPI_DEBUG ? 'inline' : false,
 
-    /*
-     * Vite emits `<link rel="modulepreload">` for the popup's shared chunks.
-     * Chrome refuses to use a preload issued from an extension page — "a
-     * cross-world extension resource mismatch" — and then warns a second time
-     * that the preload went unused, so every popup open logged four warnings on
-     * chrome://extensions.
-     *
-     * Nothing was broken: the chunks still load through the entry module's own
-     * import graph, and the hint only ever bought a parallel fetch. Over a
-     * chrome-extension:// URL with no network in the path, that is worth
-     * nothing and costs a permanently noisy error page, which matters because
-     * a real error has to stay visible among these.
-     */
+    // Module preloads produce cross-world warnings on extension pages.
     modulePreload: false,
   },
   resolve: {

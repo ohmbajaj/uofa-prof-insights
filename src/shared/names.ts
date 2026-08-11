@@ -85,7 +85,7 @@ const NICKNAMES: Record<string, readonly string[]> = {
  * ambiguous: "Rick" is usually Richard but sometimes Frederick, "Pat" is
  * Patricia or Patrick, "Steve" is Stephen or Steven. An earlier version kept
  * only the first binding, which mapped "Rick" to Frederick purely because it
- * sorted earlier — so Rick never matched Richard, the exact case this module
+ * sorted earlier. Rick never matched Richard, the exact case this module
  * exists to solve.
  */
 const FORMS: ReadonlyMap<string, ReadonlySet<string>> = (() => {
@@ -107,7 +107,7 @@ const FORMS: ReadonlyMap<string, ReadonlySet<string>> = (() => {
  * Lowercased, accent-free, punctuation-free form used for all name comparisons.
  *
  * Accents are folded so that a roster "Muller" still matches an RMP "Müller",
- * and "O'Brien" matches "OBrien" — both routine differences between a
+ * and "O'Brien" matches "OBrien". Both are routine differences between a
  * registrar's records and student-entered profiles.
  */
 export function comparableName(value: string): string {
@@ -161,7 +161,7 @@ export function givenNamesMatch(a: string, b: string): boolean {
  * Used only for the popup's manual search. Badge lookups stay strict: they read
  * a machine-generated roster, where a near-miss means the wrong professor, and
  * a wrong rating is worse than none. A human typing into a search box is a
- * different situation — dropping two letters should still find the person.
+ * different situation; dropping two letters should still find the person.
  */
 export function editDistance(a: string, b: string, max = 3): number {
   if (a === b) return 0;
@@ -204,7 +204,7 @@ export function looselyMatches(typed: string, actual: string): boolean {
   if (!a || !b) return false;
   if (a === b) return true;
 
-  // A prefix of at least four characters — covers truncated typing.
+  // A prefix of at least four characters covers truncated typing.
   if (b.startsWith(a) && a.length >= 4) return true;
   if (a.startsWith(b) && b.length >= 4) return true;
 

@@ -113,7 +113,6 @@ export class UPIFilterBar {
     this.el.setAttribute('role', 'group');
     this.el.setAttribute('aria-label', 'Filter sections by instructor rating');
 
-    REGISTRY.set(this.el, this);
     this.#render();
   }
 
@@ -131,10 +130,6 @@ export class UPIFilterBar {
 
   addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
     this.el.addEventListener(type, listener);
-  }
-
-  getAttribute(name: string): string | null {
-    return this.el.getAttribute(name);
   }
 
   get state(): FilterState {
@@ -215,13 +210,4 @@ export class UPIFilterBar {
 
     this.#bar.append(label, group, toggle, count);
   }
-}
-
-/** Host element -> bar, so code holding only a DOM node can reach its state. */
-const REGISTRY = new WeakMap<HTMLElement, UPIFilterBar>();
-
-/** The filter bar that owns `element`, if it is ours. */
-export function filterBarFromElement(element: Element | null | undefined): UPIFilterBar | null {
-  if (!element) return null;
-  return REGISTRY.get(element as HTMLElement) ?? null;
 }

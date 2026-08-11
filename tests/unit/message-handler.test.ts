@@ -110,56 +110,6 @@ describe('handleMessage', () => {
     expect(reply).toMatchObject({ name: 'Mercer, Rick' });
   });
 
-  it('answers LOOKUP_BATCH keyed by the original raw names', async () => {
-    searchProfessor.mockImplementation(async (name: string) => makeProfessor({ name }));
-
-    const reply = await handleMessage({
-      type: 'LOOKUP_BATCH',
-      names: ['Mercer, Rick', 'Debray, Saumya'],
-    });
-
-    expect(reply.type).toBe('BATCH_RESULTS');
-    if (reply.type !== 'BATCH_RESULTS') throw new Error('unreachable');
-    expect(Object.keys(reply.results)).toEqual(['Mercer, Rick', 'Debray, Saumya']);
-    expect(reply.results['Mercer, Rick']?.name).toBe('Rick Mercer');
-  });
-
-  it('collapses duplicate names within a batch into one request', async () => {
-    searchProfessor.mockImplementation(async (name: string) => makeProfessor({ name }));
-
-    await handleMessage({
-      type: 'LOOKUP_BATCH',
-      names: ['Mercer, Rick', 'Mercer, Rick', 'Mercer, Rick'],
-    });
-
-    expect(searchProfessor).toHaveBeenCalledTimes(1);
-  });
-
-  it('never exceeds MAX_CONCURRENT_REQUESTS in flight', async () => {
-    const { MAX_CONCURRENT_REQUESTS } = await import('@shared/constants');
-    let active = 0;
-    let peak = 0;
-
-    searchProfessor.mockImplementation(async (name: string) => {
-      active += 1;
-      peak = Math.max(peak, active);
-      await new Promise((r) => setTimeout(r, 5));
-      active -= 1;
-      return makeProfessor({ name });
-    });
-
-    // Alphabetic surnames only: normalizeCacheKey strips digits, so "Prof1"
-    // and "Prof2" would collapse onto a single cache entry.
-    const letter = (i: number) =>
-      String.fromCharCode(97 + Math.floor(i / 5)) + String.fromCharCode(97 + (i % 5));
-    const names = Array.from({ length: 25 }, (_, i) => `${letter(i)}surname, Test`);
-
-    await handleMessage({ type: 'LOOKUP_BATCH', names });
-
-    expect(peak).toBeLessThanOrEqual(MAX_CONCURRENT_REQUESTS);
-    expect(searchProfessor).toHaveBeenCalledTimes(25);
-  });
-
   it('answers GET_CACHE_STATS', async () => {
     const reply = await handleMessage({ type: 'GET_CACHE_STATS' });
     expect(reply).toEqual({ type: 'CACHE_STATS', stats: { count: 0, oldestAge: 0 } });
