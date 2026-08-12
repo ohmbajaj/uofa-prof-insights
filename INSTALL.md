@@ -39,7 +39,7 @@ Use the generated `dist/` folder in the remaining steps.
 
 1. Select **Load unpacked**.
 2. Choose the extracted folder that contains `manifest.json`.
-3. Confirm that UofA Prof Insights appears with its Block A icon.
+3. Confirm that UofA Prof Insights appears in the extensions list.
 
 Chrome may show a startup warning for extensions installed outside the Chrome
 Web Store. This is expected for a side-loaded extension.

@@ -1,5 +1,3 @@
-<img src="docs/screenshots/icon.png" width="72" align="right" alt="UofA Prof Insights icon">
-
 # UofA Prof Insights
 
 UofA Prof Insights is a Chrome extension that adds Rate My Professors data to
@@ -141,9 +139,5 @@ for details.
 
 This independent project is not affiliated with, endorsed by, or sponsored by
 the University of Arizona or RateMyProfessors.com.
-
-The University of Arizona Block A is a registered trademark and is not covered
-by this project's MIT License. Distribution using the mark remains subject to
-the university's [trademark and licensing requirements](https://marcom.arizona.edu/brand-guidelines/logos).
 
 Released under the [MIT License](LICENSE).
