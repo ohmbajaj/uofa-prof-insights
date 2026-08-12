@@ -35,6 +35,28 @@ export function normalizeNameForRMP(uaccessName: string): string {
 }
 
 /**
+ * Normalizes a natural-order roster name for RMP matching.
+ *
+ * Responsive UAccess pages sometimes show a formal first initial before the
+ * everyday given name ("C. Douglas Haessig"). RMP indexes that professor by
+ * the usable given name and surname, so preserving the leading initial makes
+ * the matcher treat "Douglas Haessig" as the surname. Interior middle initials
+ * are removed for the same reason; a two-token initial + surname is preserved.
+ */
+export function normalizeNaturalNameForRMP(uaccessName: string): string {
+  const parts = uaccessName.trim().replace(/\s+/g, ' ').split(' ').filter(Boolean);
+  const isInitial = (part: string) => /^\p{L}\.?$/u.test(part);
+
+  if (parts.length >= 3 && parts[0] && isInitial(parts[0])) parts.shift();
+  if (parts.length >= 3) {
+    return parts
+      .filter((part, index) => index === 0 || index === parts.length - 1 || !isInitial(part))
+      .join(' ');
+  }
+  return parts.join(' ');
+}
+
+/**
  * How a page writes instructor names, which decides what a comma means.
  *
  * `surname-first`: classic class search, one name as "Mercer, Richard".

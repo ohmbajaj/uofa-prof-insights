@@ -94,6 +94,34 @@ describe('detectProfessorsGeneric: real Student Center markup shapes', () => {
     expect(names).toEqual(['Ratchaneekorn Thamvichai', 'Na Liu']);
   });
 
+  it('finds the initial-led instructor format shown in Meeting Information', () => {
+    document.body.innerHTML = `
+      <div class="class-result">
+        <h2>EDL 200 - A Class</h2>
+        <div class="section-head">Section 003 &nbsp; Lecture &nbsp; (32082)</div>
+        <section>
+          <h3>Meeting Information</h3>
+          <div class="meeting-grid">
+            <div><i class="icon-time"></i>MoWeFr 9:00AM - 9:50AM</div>
+            <div class="instructor-line"><i class="icon-person"></i>C. Douglas Haessig</div>
+            <div><i class="icon-place"></i>Education, Rm 351</div>
+            <div><i class="icon-date"></i>8/24/26 - 12/9/26</div>
+          </div>
+        </section>
+        <button>CLASS DETAILS</button><button>SELECT</button>
+      </div>`;
+
+    const found = detectProfessorsGeneric(document);
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({
+      name: 'Douglas Haessig',
+      rawName: 'C. Douglas Haessig',
+      courseCode: 'EDL200',
+      speculative: true,
+    });
+    expect(found[0]?.element.className).toBe('instructor-line');
+  });
+
   it('anchors the badge on the element holding the text', () => {
     document.body.innerHTML = `
       <div class="card">ECE 201

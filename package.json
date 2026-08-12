@@ -1,6 +1,6 @@
 {
   "name": "uofa-prof-insights",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "View Rate My Professors ratings while browsing classes in UAccess.",
   "private": true,
   "type": "module",

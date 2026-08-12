@@ -4,6 +4,7 @@ import {
   formatDuration,
   getRatingColor,
   normalizeCacheKey,
+  normalizeNaturalNameForRMP,
   normalizeNameForRMP,
 } from '@shared/utils';
 import { COLOR_BAD, COLOR_GOOD, COLOR_OK, COLOR_UNKNOWN } from '@shared/constants';
@@ -39,6 +40,25 @@ describe('normalizeNameForRMP', () => {
 
   it('returns an empty string for empty input', () => {
     expect(normalizeNameForRMP('   ')).toBe('');
+  });
+});
+
+describe('normalizeNaturalNameForRMP', () => {
+  it('drops a formal leading initial when an everyday given name follows', () => {
+    expect(normalizeNaturalNameForRMP('C. Douglas Haessig')).toBe('Douglas Haessig');
+  });
+
+  it('drops an interior middle initial', () => {
+    expect(normalizeNaturalNameForRMP('John A. Smith')).toBe('John Smith');
+  });
+
+  it('keeps a two-token initial and surname matchable', () => {
+    expect(normalizeNaturalNameForRMP('R. Mercer')).toBe('R. Mercer');
+  });
+
+  it('preserves ordinary and compound-surname names', () => {
+    expect(normalizeNaturalNameForRMP('Ratchaneekorn Thamvichai')).toBe('Ratchaneekorn Thamvichai');
+    expect(normalizeNaturalNameForRMP('Elizabeth van Horn')).toBe('Elizabeth van Horn');
   });
 });
 
