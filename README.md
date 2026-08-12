@@ -10,7 +10,7 @@ review course-specific ratings, and filter sections without leaving UAccess.
 
 ## Install the extension
 
-[**Download the ready-to-use ZIP**](downloads/uofa-prof-insights.zip?raw=1)
+[**Download the ready-to-use ZIP**](https://github.com/ohmbajaj/uofa-prof-insights/releases/latest/download/uofa-prof-insights.zip)
 
 The ZIP contains the complete built extension. You do not need Node.js, npm, or
 any programming tools to install it:
@@ -23,7 +23,8 @@ any programming tools to install it:
 5. Keep that extracted folder in place, then open UAccess Class Search.
 
 See the [full installation and troubleshooting guide](INSTALL.md) for detailed
-steps.
+steps. You can also open the [latest GitHub Release](https://github.com/ohmbajaj/uofa-prof-insights/releases/latest)
+and download `uofa-prof-insights.zip` from its **Assets** section.
 
 ![Modern UAccess class search with instructor rating badges and professor details](docs/screenshots/uaccess.png)
 
