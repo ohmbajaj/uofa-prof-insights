@@ -1,10 +1,13 @@
 import {
   MAX_TOP_TAGS,
+  MAX_TAG_LENGTH,
   MIN_COURSE_RATINGS,
   RMP_AUTH_HEADER,
   RMP_GRAPHQL_ENDPOINT,
+  RMP_MAX_RESPONSE_BYTES,
   RMP_NO_DATA_SENTINEL,
   RMP_PROFESSOR_URL_BASE,
+  RMP_REQUEST_TIMEOUT_MS,
   SEARCH_PAGE_SIZE,
   TAG_SAMPLE_SIZE,
   UOFA_SCHOOL_ID,
@@ -18,6 +21,7 @@ import type {
   ProfessorData,
   ReviewInsights,
 } from '@shared/types';
+import { isBoundedString, isProfessorData, isRecord, parseProfessorName } from '@shared/validation';
 import { summarizeReviews } from './reviews';
 
 /**
@@ -118,34 +122,263 @@ export class RmpApiError extends Error {
   }
 }
 
-async function gql<T>(query: string, variables: Record<string, unknown>): Promise<T> {
-  let response: Response;
+function isNumberBetween(value: unknown, min: number, max: number): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
+}
+
+function isNullableNumberBetween(value: unknown, min: number, max: number): boolean {
+  return value === null || isNumberBetween(value, min, max);
+}
+
+function isNullableText(value: unknown, maxLength: number): boolean {
+  return value === null || value === undefined || isBoundedString(value, maxLength);
+}
+
+function parseTeacherNode(value: unknown): TeacherNode | null {
+  if (
+    !isRecord(value) ||
+    !isBoundedString(value.id, 512, false) ||
+    !Number.isSafeInteger(value.legacyId) ||
+    (value.legacyId as number) <= 0 ||
+    !isBoundedString(value.firstName, 160, false) ||
+    !isBoundedString(value.lastName, 160, false) ||
+    !parseProfessorName(`${String(value.firstName)} ${String(value.lastName)}`) ||
+    !isNullableText(value.department, 200) ||
+    !isNullableNumberBetween(value.avgRating, 0, 5) ||
+    !isNullableNumberBetween(value.avgDifficulty, 0, 5) ||
+    !isNullableNumberBetween(value.wouldTakeAgainPercent, RMP_NO_DATA_SENTINEL, 100) ||
+    !(
+      value.numRatings === null ||
+      (Number.isSafeInteger(value.numRatings) &&
+        (value.numRatings as number) >= 0 &&
+        (value.numRatings as number) <= 10_000_000)
+    )
+  ) {
+    return null;
+  }
+
+  let school: TeacherNode['school'] = null;
+  if (value.school !== null && value.school !== undefined) {
+    if (
+      !isRecord(value.school) ||
+      !isBoundedString(value.school.id, 512, false) ||
+      !isBoundedString(value.school.name, 200, false)
+    ) {
+      return null;
+    }
+    school = { id: value.school.id, name: value.school.name };
+  }
+
+  return {
+    id: value.id,
+    legacyId: value.legacyId as number,
+    firstName: value.firstName,
+    lastName: value.lastName,
+    department: typeof value.department === 'string' ? value.department : null,
+    school,
+    avgRating: value.avgRating as number | null,
+    avgDifficulty: value.avgDifficulty as number | null,
+    wouldTakeAgainPercent: value.wouldTakeAgainPercent as number | null,
+    numRatings: value.numRatings as number | null,
+  };
+}
+
+function parseSearchResponse(value: unknown): SearchResponse | null {
+  if (!isRecord(value)) return null;
+  if (value.newSearch === null || value.newSearch === undefined) return {};
+  if (!isRecord(value.newSearch)) return null;
+
+  const teachers = value.newSearch.teachers;
+  if (teachers === null || teachers === undefined) return { newSearch: { teachers: null } };
+  if (
+    !isRecord(teachers) ||
+    typeof teachers.didFallback !== 'boolean' ||
+    !Array.isArray(teachers.edges) ||
+    teachers.edges.length > 100
+  ) {
+    return null;
+  }
+
+  const edges: { node: TeacherNode }[] = [];
+  for (const edge of teachers.edges) {
+    if (!isRecord(edge)) return null;
+    const node = parseTeacherNode(edge.node);
+    if (!node) return null;
+    edges.push({ node });
+  }
+  return { newSearch: { teachers: { didFallback: teachers.didFallback, edges } } };
+}
+
+function parseRatingNode(value: unknown): RatingNode | null {
+  if (
+    !isRecord(value) ||
+    !isNullableText(value.ratingTags, 2_000) ||
+    !isNullableText(value.class, 100) ||
+    !(value.helpfulRating === undefined || isNullableNumberBetween(value.helpfulRating, 0, 5)) ||
+    !(
+      value.difficultyRating === undefined || isNullableNumberBetween(value.difficultyRating, 0, 5)
+    ) ||
+    !isNullableText(value.comment, 20_000) ||
+    !isNullableText(value.attendanceMandatory, 100) ||
+    !(
+      value.textbookIsUsed === undefined ||
+      typeof value.textbookIsUsed === 'boolean' ||
+      value.textbookIsUsed === null
+    ) ||
+    !isNullableText(value.grade, 100) ||
+    !(
+      value.isForOnlineClass === undefined ||
+      typeof value.isForOnlineClass === 'boolean' ||
+      value.isForOnlineClass === null
+    )
+  ) {
+    return null;
+  }
+
+  return {
+    ratingTags: typeof value.ratingTags === 'string' ? value.ratingTags : null,
+    class: typeof value.class === 'string' ? value.class : null,
+    helpfulRating: typeof value.helpfulRating === 'number' ? value.helpfulRating : null,
+    difficultyRating: typeof value.difficultyRating === 'number' ? value.difficultyRating : null,
+    comment: typeof value.comment === 'string' ? value.comment : null,
+    attendanceMandatory:
+      typeof value.attendanceMandatory === 'string' ? value.attendanceMandatory : null,
+    textbookIsUsed: typeof value.textbookIsUsed === 'boolean' ? value.textbookIsUsed : null,
+    grade: typeof value.grade === 'string' ? value.grade : null,
+    isForOnlineClass: typeof value.isForOnlineClass === 'boolean' ? value.isForOnlineClass : null,
+  };
+}
+
+function parseRatingsResponse(value: unknown): RatingsResponse | null {
+  if (!isRecord(value)) return null;
+  if (value.node === null || value.node === undefined) return {};
+  if (!isRecord(value.node)) return null;
+
+  const ratings = value.node.ratings;
+  if (ratings === null || ratings === undefined) return { node: { ratings: null } };
+  if (
+    !isRecord(ratings) ||
+    !Array.isArray(ratings.edges) ||
+    ratings.edges.length > TAG_SAMPLE_SIZE
+  ) {
+    return null;
+  }
+
+  const edges: { node: RatingNode }[] = [];
+  for (const edge of ratings.edges) {
+    if (!isRecord(edge)) return null;
+    const node = parseRatingNode(edge.node);
+    if (!node) return null;
+    edges.push({ node });
+  }
+  return { node: { ratings: { edges } } };
+}
+
+async function readJsonBody(response: Response): Promise<unknown> {
+  const declaredLength = response.headers?.get?.('content-length');
+  if (declaredLength) {
+    const bytes = Number(declaredLength);
+    if (Number.isFinite(bytes) && bytes > RMP_MAX_RESPONSE_BYTES) {
+      throw new RmpApiError('RateMyProfessors response exceeded the safe size limit');
+    }
+  }
+
+  if (response.body?.getReader) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let bytesRead = 0;
+    let text = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytesRead += value.byteLength;
+      if (bytesRead > RMP_MAX_RESPONSE_BYTES) {
+        await reader.cancel();
+        throw new RmpApiError('RateMyProfessors response exceeded the safe size limit');
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    text += decoder.decode();
+    return JSON.parse(text) as unknown;
+  }
+
+  // Test doubles and older runtimes may expose only Response.json().
+  return response.json() as Promise<unknown>;
+}
+
+async function gql<T>(
+  query: string,
+  variables: Record<string, unknown>,
+  parseData: (value: unknown) => T | null,
+): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), RMP_REQUEST_TIMEOUT_MS);
+
   try {
-    response = await fetch(RMP_GRAPHQL_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: RMP_AUTH_HEADER,
-      },
-      body: JSON.stringify({ query, variables }),
-    });
-  } catch (cause) {
-    throw new RmpApiError(`Network request to RateMyProfessors failed: ${String(cause)}`);
-  }
+    let response: Response;
+    try {
+      response = await fetch(RMP_GRAPHQL_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: RMP_AUTH_HEADER,
+        },
+        body: JSON.stringify({ query, variables }),
+        signal: controller.signal,
+      });
+    } catch (cause) {
+      const reason = controller.signal.aborted
+        ? `RateMyProfessors request timed out after ${RMP_REQUEST_TIMEOUT_MS}ms`
+        : `Network request to RateMyProfessors failed: ${String(cause)}`;
+      throw new RmpApiError(reason);
+    }
 
-  if (!response.ok) {
-    throw new RmpApiError(`RateMyProfessors returned HTTP ${response.status}`);
-  }
+    if (!response.ok) {
+      throw new RmpApiError(`RateMyProfessors returned HTTP ${response.status}`);
+    }
 
-  const body = (await response.json()) as { data?: T; errors?: { message: string }[] };
-  if (body.errors?.length) {
-    throw new RmpApiError(body.errors.map((e) => e.message).join('; '));
-  }
-  if (!body.data) {
-    throw new RmpApiError('RateMyProfessors returned an empty response');
-  }
+    const contentType = response.headers?.get?.('content-type');
+    if (contentType && !contentType.toLowerCase().includes('application/json')) {
+      throw new RmpApiError('RateMyProfessors returned a non-JSON response');
+    }
 
-  return body.data;
+    let body: unknown;
+    try {
+      body = await readJsonBody(response);
+    } catch (cause) {
+      if (cause instanceof RmpApiError) throw cause;
+      if (controller.signal.aborted) {
+        throw new RmpApiError(
+          `RateMyProfessors request timed out after ${RMP_REQUEST_TIMEOUT_MS}ms`,
+        );
+      }
+      throw new RmpApiError(`RateMyProfessors returned invalid JSON: ${String(cause)}`);
+    }
+
+    if (!isRecord(body)) throw new RmpApiError('RateMyProfessors returned a malformed response');
+    if (body.errors !== undefined) {
+      if (!Array.isArray(body.errors)) {
+        throw new RmpApiError('RateMyProfessors returned malformed GraphQL errors');
+      }
+      if (body.errors.length > 0) {
+        const messages = body.errors
+          .map((error) =>
+            isRecord(error) && isBoundedString(error.message, 1_000, false)
+              ? error.message
+              : 'Unknown GraphQL error',
+          )
+          .slice(0, 10);
+        throw new RmpApiError(messages.join('; '));
+      }
+    }
+
+    const parsed = parseData(body.data);
+    if (!parsed) throw new RmpApiError('RateMyProfessors returned malformed data');
+    return parsed;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 /** RMP reports 0 for unrated professors; treat that as "no data", not a real score. */
@@ -194,7 +427,7 @@ export function mapTeacherNode(node: TeacherNode, options: MapOptions = {}): Pro
     rmpUrl: `${RMP_PROFESSOR_URL_BASE}/${node.legacyId}`,
     cachedAt: Date.now(),
     matchConfidence: options.matchConfidence ?? 'exact',
-    alternateProfiles: (options.alternates ?? []).map(toAlternate),
+    alternateProfiles: (options.alternates ?? []).slice(0, 20).map(toAlternate),
     courseRatings: options.courseRatings ?? [],
     reviewInsights: options.reviewInsights ?? null,
   };
@@ -288,7 +521,7 @@ export function tallyTags(ratingTags: (string | null)[]): string[] {
 
   for (const raw of ratingTags) {
     for (const tag of (raw ?? '').split('--')) {
-      const clean = tag.trim();
+      const clean = tag.trim().slice(0, MAX_TAG_LENGTH);
       if (clean) counts.set(clean, (counts.get(clean) ?? 0) + 1);
     }
   }
@@ -359,10 +592,14 @@ export interface RatingInsights {
  * downloaded and thrown away.
  */
 export async function fetchRatingInsights(teacherId: string): Promise<RatingInsights> {
-  const data = await gql<RatingsResponse>(TEACHER_RATINGS_QUERY, {
-    id: teacherId,
-    count: TAG_SAMPLE_SIZE,
-  });
+  if (!isBoundedString(teacherId, 512, false)) {
+    throw new RmpApiError('Invalid RateMyProfessors teacher id');
+  }
+  const data = await gql(
+    TEACHER_RATINGS_QUERY,
+    { id: teacherId, count: TAG_SAMPLE_SIZE },
+    parseRatingsResponse,
+  );
   const nodes = (data.node?.ratings?.edges ?? []).map((e) => e.node);
 
   return {
@@ -374,9 +611,11 @@ export async function fetchRatingInsights(teacherId: string): Promise<RatingInsi
 
 /** One page of school-scoped candidates for a free-text query. */
 async function fetchCandidates(text: string): Promise<TeacherNode[]> {
-  const data = await gql<SearchResponse>(TEACHER_SEARCH_QUERY, {
-    query: { text, schoolID: UOFA_SCHOOL_ID },
-  });
+  const data = await gql(
+    TEACHER_SEARCH_QUERY,
+    { query: { text, schoolID: UOFA_SCHOOL_ID } },
+    parseSearchResponse,
+  );
   return (data.newSearch?.teachers?.edges ?? []).map((e) => e.node);
 }
 
@@ -436,7 +675,7 @@ export async function searchProfessor(
   name: string,
   options: SearchOptions = {},
 ): Promise<ProfessorData | null> {
-  const trimmed = name.trim();
+  const trimmed = parseProfessorName(name);
   if (!trimmed) return null;
 
   const { last } = splitName(trimmed);
@@ -483,11 +722,15 @@ export async function searchProfessor(
     }
   }
 
-  return mapTeacherNode(match.node, {
+  const result = mapTeacherNode(match.node, {
     topTags: insights.topTags,
     courseRatings: insights.courseRatings,
     reviewInsights: insights.reviews,
     matchConfidence: match.confidence,
     alternates: match.alternates,
   });
+  if (!isProfessorData(result)) {
+    throw new RmpApiError('RateMyProfessors data could not be normalized safely');
+  }
+  return result;
 }

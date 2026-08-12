@@ -20,6 +20,17 @@ export const RMP_PROFESSOR_URL_BASE = 'https://www.ratemyprofessors.com/professo
 export const DEFAULT_CACHE_TTL_DAYS = 7;
 export const MAX_CACHE_ENTRIES = 500;
 
+/** Bounds untrusted names before they become cache keys or GraphQL variables. */
+export const MAX_PROFESSOR_NAME_LENGTH = 160;
+
+/** Keeps a compromised page from turning the extension into an API request flood. */
+export const MAX_CONCURRENT_LOOKUPS = 4;
+export const MAX_LOOKUPS_PER_MINUTE = 120;
+
+/** Network and payload limits for the third-party RMP GraphQL endpoint. */
+export const RMP_REQUEST_TIMEOUT_MS = 10_000;
+export const RMP_MAX_RESPONSE_BYTES = 2_000_000;
+
 export const CACHE_STORAGE_KEY = 'upi_professor_cache';
 export const SETTINGS_STORAGE_KEY = 'upi_settings';
 export const STATS_STORAGE_KEY = 'upi_stats';
@@ -49,6 +60,7 @@ export const RMP_NO_DATA_SENTINEL = -1;
 /** How many recent ratings to pull when tallying tags and per-course averages. */
 export const TAG_SAMPLE_SIZE = 40;
 export const MAX_TOP_TAGS = 5;
+export const MAX_TAG_LENGTH = 120;
 
 /**
  * Minimum reviews before a per-course average is shown. One review is noise,

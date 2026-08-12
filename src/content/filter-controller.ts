@@ -151,8 +151,9 @@ export function syncFilterBar(
   if (!bar || !bar.isConnected) {
     bar = new UPIFilterBar(doc);
     bar.state = state;
-    bar.addEventListener(FILTER_CHANGE_EVENT, (event) => {
-      state = (event as CustomEvent<FilterState>).detail;
+    bar.addEventListener(FILTER_CHANGE_EVENT, () => {
+      if (!bar) return;
+      state = bar.state;
       // Apply immediately against the newest data, then let the caller react.
       if (latest) {
         recount(latest);

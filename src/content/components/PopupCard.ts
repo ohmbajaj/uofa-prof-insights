@@ -218,10 +218,6 @@ export class UPICard {
   }
 
   /** Mirrors the host element, so callers holding a card can treat it as one. */
-  get dataset(): DOMStringMap {
-    return this.el.dataset;
-  }
-
   get style(): CSSStyleDeclaration {
     return this.el.style;
   }
@@ -360,8 +356,7 @@ export class UPICard {
       event.stopPropagation();
       this.busy = true;
       this.el.dispatchEvent(
-        new CustomEvent<ProfessorData>(CARD_REFRESH_EVENT, {
-          detail: data,
+        new CustomEvent<void>(CARD_REFRESH_EVENT, {
           bubbles: true,
           composed: true,
         }),

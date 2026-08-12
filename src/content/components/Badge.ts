@@ -132,8 +132,10 @@ export class UPIBadge {
   #badge: HTMLSpanElement;
   #data: BadgeData = 'loading';
   #rank: RankContext | null = null;
+  #professorName: string;
 
-  constructor(doc: Document = document) {
+  constructor(doc: Document = document, professorName = '') {
+    this.#professorName = professorName;
     this.el = doc.createElement(BADGE_TAG);
     this.#shadow = this.el.attachShadow({ mode: 'open' });
 
@@ -160,9 +162,9 @@ export class UPIBadge {
     this.#render();
   }
 
-  /** Mirrors `element.dataset` so callers can tag the host. */
-  get dataset(): DOMStringMap {
-    return this.el.dataset;
+  /** Immutable association kept outside the page-controlled DOM. */
+  get professorName(): string {
+    return this.#professorName;
   }
 
   remove(): void {
@@ -187,8 +189,7 @@ export class UPIBadge {
 
   #emitClick = (): void => {
     this.el.dispatchEvent(
-      new CustomEvent<BadgeData>(BADGE_CLICK_EVENT, {
-        detail: this.#data,
+      new CustomEvent<void>(BADGE_CLICK_EVENT, {
         bubbles: true,
         // Required for the event to cross the shadow boundary.
         composed: true,

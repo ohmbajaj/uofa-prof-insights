@@ -331,7 +331,15 @@ function harnessHtml(bundlePath) {
     bestPills: badges.filter((b) => (b.shadowRoot?.textContent ?? '').includes('BEST')).length,
     bestPillOnTopRated: (() => {
       const withPill = badges.find((b) => (b.shadowRoot?.textContent ?? '').includes('BEST'));
-      return withPill ? withPill.dataset.upiName : null;
+      const ratingOf = (badge) => {
+        // The first number in badge text is always the 1–5 rating; matching it
+        // avoids depending on the terminal's rendering of the star glyph.
+        const match = (badge.shadowRoot?.textContent ?? '').match(/(\\d(?:\\.\\d)?)/);
+        return match ? Number(match[1]) : null;
+      };
+      const pillRating = withPill ? ratingOf(withPill) : null;
+      const ratings = badges.map(ratingOf).filter((rating) => rating !== null);
+      return pillRating !== null && ratings.length > 0 && pillRating === Math.max(...ratings);
     })(),
     filter: {
       mounted: !!filterBar,
@@ -633,7 +641,7 @@ if (report) {
       /lots of homework.*×7/.test((report.card.phrasesShown ?? []).join(' ')),
     ],
     ['exactly one BEST pill', report.bestPills === 1],
-    ['BEST pill sits on the top-rated instructor', report.bestPillOnTopRated === "Sean O'Brien"],
+    ['BEST pill sits on the top-rated instructor', report.bestPillOnTopRated === true],
 
     ['filter bar mounted above the results', report.filter.aboveResults === true],
     ['filter offers rating thresholds', report.filter.buttons?.join(',') === 'All,2.5+,3.5+,4+'],

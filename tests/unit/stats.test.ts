@@ -106,6 +106,23 @@ describe('recently viewed', () => {
     ]);
   });
 
+  it('drops poisoned stored links before the popup can render them', async () => {
+    await chrome.storage.local.set({
+      upi_recents: [
+        {
+          name: 'Fake Professor',
+          department: 'Unknown',
+          overallRating: 5,
+          numRatings: 999,
+          rmpUrl: 'https://attacker.example/phish',
+          viewedAt: Date.now(),
+        },
+      ],
+    });
+
+    await expect(stats.getRecents()).resolves.toEqual([]);
+  });
+
   it('clears', async () => {
     await stats.recordRecent(makeProfessor());
     await stats.clearRecents();

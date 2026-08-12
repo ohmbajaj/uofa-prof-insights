@@ -1,5 +1,6 @@
 import { MAX_RECENT_PROFESSORS, RECENTS_STORAGE_KEY, STATS_STORAGE_KEY } from '@shared/constants';
-import type { ProfessorData, RecentProfessor, UsageStats } from '@shared/types';
+import type { RecentProfessor, RecentProfessorInput, UsageStats } from '@shared/types';
+import { isRecord, sanitizeRecents } from '@shared/validation';
 
 /**
  * Local-only usage counters and recently viewed professors.
@@ -19,8 +20,15 @@ export const EMPTY_STATS: UsageStats = {
 
 export async function getStats(): Promise<UsageStats> {
   const stored = await chrome.storage.local.get(STATS_STORAGE_KEY);
-  const raw = stored[STATS_STORAGE_KEY] as Partial<UsageStats> | undefined;
-  return { ...EMPTY_STATS, ...(raw ?? {}) };
+  const raw = stored[STATS_STORAGE_KEY];
+  if (!isRecord(raw)) return { ...EMPTY_STATS };
+
+  const safe = { ...EMPTY_STATS };
+  for (const key of Object.keys(safe) as (keyof UsageStats)[]) {
+    const value = raw[key];
+    if (Number.isSafeInteger(value) && (value as number) >= 0) safe[key] = value as number;
+  }
+  return safe;
 }
 
 /**
@@ -49,8 +57,7 @@ export async function clearStats(): Promise<void> {
 
 export async function getRecents(): Promise<RecentProfessor[]> {
   const stored = await chrome.storage.local.get(RECENTS_STORAGE_KEY);
-  const raw = stored[RECENTS_STORAGE_KEY];
-  return Array.isArray(raw) ? (raw as RecentProfessor[]) : [];
+  return sanitizeRecents(stored[RECENTS_STORAGE_KEY]);
 }
 
 /**
@@ -58,7 +65,7 @@ export async function getRecents(): Promise<RecentProfessor[]> {
  *
  * Stores only what the popup renders. Course and section details are omitted.
  */
-export async function recordRecent(data: ProfessorData): Promise<RecentProfessor[]> {
+export async function recordRecent(data: RecentProfessorInput): Promise<RecentProfessor[]> {
   const entry: RecentProfessor = {
     name: data.name,
     department: data.department,

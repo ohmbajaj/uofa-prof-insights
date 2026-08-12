@@ -204,7 +204,7 @@ describe('UPIBadge rank context', () => {
 });
 
 describe('UPIBadge click events', () => {
-  it('emits upi-badge-click carrying the professor data', () => {
+  it('emits upi-badge-click without exposing mutable state in event.detail', () => {
     const badge = mount();
     const prof = makeProfessor({ name: 'Richard Mercer' });
     badge.data = prof;
@@ -215,10 +215,11 @@ describe('UPIBadge click events', () => {
     });
     badge.click();
 
-    expect(detail).toBe(prof);
+    expect(detail).toBeNull();
+    expect(badge.data).toBe(prof);
   });
 
-  it('emits the current data after an update', () => {
+  it('keeps current data private after an update', () => {
     const badge = mount();
     badge.data = 'error';
 
@@ -228,7 +229,8 @@ describe('UPIBadge click events', () => {
     });
     badge.click();
 
-    expect(detail).toBe('error');
+    expect(detail).toBeNull();
+    expect(badge.data).toBe('error');
   });
 
   it('bubbles out of the shadow root so ancestors can listen', () => {

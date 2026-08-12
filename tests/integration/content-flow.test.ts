@@ -470,6 +470,36 @@ describe('content script: retry and refresh', () => {
     });
   });
 
+  it('does not trust a page-modified badge dataset during retry', async () => {
+    document.body.innerHTML = CLASSIC_HTML;
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    let attempt = 0;
+    const send = installRuntime(async (m) => {
+      attempt += 1;
+      return attempt === 1
+        ? { type: 'ERROR', message: 'network down' }
+        : {
+            type: 'PROFESSOR_RESULT',
+            name: (m as { name: string }).name,
+            data: professor(),
+          };
+    });
+
+    await loadContentScript();
+    await flush();
+
+    const badge = badgeAt();
+    badge.el.dataset.upiName = 'Attacker Controlled';
+    badge.click();
+    await flush();
+
+    expect(send).toHaveBeenCalledWith({
+      type: 'REFRESH_PROFESSOR',
+      name: 'Richard Mercer',
+    });
+  });
+
   it('shows the loading state while retrying', async () => {
     document.body.innerHTML = CLASSIC_HTML;
     vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -617,6 +647,43 @@ describe('content script: detail card', () => {
     const card = document.querySelector('upi-card');
     expect(card).not.toBeNull();
     expect(card?.shadowRoot?.querySelector('.card')?.textContent).toContain('Richard Mercer');
+  });
+
+  it('ignores forged professor data in a page-dispatched badge event', async () => {
+    document.body.innerHTML = CLASSIC_HTML;
+    const send = installRuntime(async (m) => ({
+      type: 'PROFESSOR_RESULT',
+      name: (m as { name: string }).name,
+      data: professor({ name: 'Richard Mercer' }),
+    }));
+
+    await loadContentScript();
+    await flush();
+
+    const badge = badgeAt();
+    badge.el.dispatchEvent(
+      new CustomEvent(badgeModule.BADGE_CLICK_EVENT, {
+        detail: professor({
+          name: 'Attacker Controlled',
+          rmpUrl: 'https://attacker.example/phish',
+        }),
+        bubbles: true,
+        composed: true,
+      }),
+    );
+
+    const card = document.querySelector('upi-card');
+    expect(card?.shadowRoot?.textContent).toContain('Richard Mercer');
+    expect(card?.shadowRoot?.textContent).not.toContain('Attacker Controlled');
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'RECORD_VIEW',
+        data: expect.objectContaining({
+          name: 'Richard Mercer',
+          rmpUrl: 'https://www.ratemyprofessors.com/professor/12302',
+        }),
+      }),
+    );
   });
 
   it('does not open a card for an errored badge', async () => {

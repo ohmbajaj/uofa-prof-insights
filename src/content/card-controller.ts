@@ -87,7 +87,7 @@ export function openCardFor(
   if (!win) return null;
 
   // Toggle off when the same badge is clicked twice.
-  if (openCard && openCard.dataset.upiAnchorId === anchorId(anchor)) {
+  if (openCard && openAnchor === anchor) {
     closeCard();
     return null;
   }
@@ -95,7 +95,6 @@ export function openCardFor(
   closeCard();
 
   const card = new UPICard(doc);
-  card.dataset.upiAnchorId = anchorId(anchor);
   card.courseCode = courseCode;
   card.data = data;
 
@@ -136,19 +135,7 @@ export function openCardFor(
   return card;
 }
 
-let nextAnchorId = 0;
-
-/** Stable per-element id, assigned lazily, used only to detect a re-click. */
-function anchorId(anchor: HTMLElement): string {
-  if (!anchor.dataset.upiAnchorId) {
-    nextAnchorId += 1;
-    anchor.dataset.upiAnchorId = String(nextAnchorId);
-  }
-  return anchor.dataset.upiAnchorId;
-}
-
 /** Test seam. */
 export function resetCardState(): void {
   closeCard();
-  nextAnchorId = 0;
 }
