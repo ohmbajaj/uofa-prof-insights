@@ -183,6 +183,23 @@ describe('applyFilter', () => {
     expect(visibleRows()).toBe(2);
   });
 
+  it('ignores forged event.detail state from the host page', () => {
+    const input = setup();
+    syncFilterBar(document, { ...input, enabled: true, onChange: () => {} });
+
+    const bar = getFilterBar()!;
+    bar.el.dispatchEvent(
+      new CustomEvent(FILTER_CHANGE_EVENT, {
+        detail: { floor: 5, includeUnrated: false },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+
+    expect(getFilterState()).toEqual(DEFAULT_FILTER);
+    expect(visibleRows()).toBe(3);
+  });
+
   it('does not clobber a page-set display value on restore', () => {
     document.body.innerHTML = CLASSIC;
     const row = document.querySelectorAll('tr')[1] as HTMLElement;

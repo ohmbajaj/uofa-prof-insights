@@ -4,13 +4,10 @@
   "version": "1.0.0",
   "description": "View Rate My Professors ratings while browsing classes in UAccess.",
   "permissions": ["storage"],
-  "host_permissions": [
-    "https://www.ratemyprofessors.com/*",
-    "https://uaccess.arizona.edu/*",
-    "https://student.uaccess.arizona.edu/*",
-    "https://student851.uaccess.arizona.edu/*",
-    "https://studentcenter.arizona.edu/*"
-  ],
+  "host_permissions": ["https://www.ratemyprofessors.com/*"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'; connect-src https://www.ratemyprofessors.com"
+  },
   "background": {
     "service_worker": "src/background/service-worker.ts",
     "type": "module"

@@ -8,6 +8,7 @@ import {
   SETTINGS_STORAGE_KEY,
 } from '@shared/constants';
 import type { CacheEntry, ExtensionSettings, ProfessorData } from '@shared/types';
+import { isProfessorData, isRecord } from '@shared/validation';
 
 /**
  * Professor cache, persisted as a single object under CACHE_STORAGE_KEY in
@@ -41,7 +42,15 @@ async function writeMap(map: CacheMap): Promise<void> {
 }
 
 function isCacheMap(value: unknown): value is CacheMap {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  if (!isRecord(value)) return false;
+  return Object.entries(value).every(
+    ([key, entry]) =>
+      isRecord(entry) &&
+      entry.key === key &&
+      Number.isFinite(entry.expiresAt) &&
+      Number.isSafeInteger(entry.version) &&
+      isProfessorData(entry.data),
+  );
 }
 
 /**
@@ -67,9 +76,17 @@ function prune(map: CacheMap, now: number): CacheMap {
 
 export async function getSettings(): Promise<ExtensionSettings> {
   const stored = await chrome.storage.local.get(SETTINGS_STORAGE_KEY);
-  const raw = stored[SETTINGS_STORAGE_KEY] as Partial<ExtensionSettings> | undefined;
-  const merged = { ...DEFAULT_SETTINGS, ...(raw ?? {}) };
-  return { ...merged, cacheTTLDays: clampTTL(merged.cacheTTLDays) };
+  const raw = stored[SETTINGS_STORAGE_KEY];
+  const settings = isRecord(raw) ? raw : {};
+  return {
+    autoDetect:
+      typeof settings.autoDetect === 'boolean' ? settings.autoDetect : DEFAULTS.autoDetect,
+    showFilterBar:
+      typeof settings.showFilterBar === 'boolean' ? settings.showFilterBar : DEFAULTS.showFilterBar,
+    cacheTTLDays: clampTTL(
+      typeof settings.cacheTTLDays === 'number' ? settings.cacheTTLDays : DEFAULTS.cacheTTLDays,
+    ),
+  };
 }
 
 export async function saveSettings(patch: Partial<ExtensionSettings>): Promise<ExtensionSettings> {
@@ -95,6 +112,7 @@ export async function get(key: string): Promise<ProfessorData | null> {
 }
 
 export async function set(key: string, data: ProfessorData): Promise<void> {
+  if (!isProfessorData(data)) throw new Error('Refusing to cache invalid professor data');
   const now = Date.now();
   const { cacheTTLDays } = await getSettings();
   const map = await readMap();

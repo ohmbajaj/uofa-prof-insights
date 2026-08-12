@@ -8,7 +8,7 @@ import {
   tallyTags,
 } from '@background/rmp-api';
 import { normalizeCourseCode } from '@shared/utils';
-import { UOFA_SCHOOL_ID } from '@shared/constants';
+import { RMP_MAX_RESPONSE_BYTES, RMP_REQUEST_TIMEOUT_MS, UOFA_SCHOOL_ID } from '@shared/constants';
 
 /** Shape mirrors the live API response. */
 function teacher(patch: Record<string, unknown> = {}) {
@@ -84,10 +84,12 @@ function mockFetchSequence(...payloads: unknown[]) {
 }
 
 beforeEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -509,5 +511,49 @@ describe('searchProfessor', () => {
       }),
     );
     await expect(searchProfessor('Rick Mercer')).rejects.toThrow(/bogus/);
+  });
+
+  it('rejects malformed teacher data instead of trusting a TypeScript cast', async () => {
+    mockFetchSequence(searchPayload([teacher({ legacyId: 'not-a-number' })]));
+    await expect(searchProfessor('Rick Mercer')).rejects.toThrow(/malformed data/i);
+  });
+
+  it('rejects responses whose declared size exceeds the safe limit', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: {
+          get: (name: string) =>
+            name.toLowerCase() === 'content-length'
+              ? String(RMP_MAX_RESPONSE_BYTES + 1)
+              : 'application/json',
+        },
+        body: null,
+        json: async () => searchPayload([]),
+      }),
+    );
+
+    await expect(searchProfessor('Rick Mercer')).rejects.toThrow(/size limit/i);
+  });
+
+  it('aborts a request that exceeds the network timeout', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url: string, init: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            init.signal?.addEventListener('abort', () =>
+              reject(new DOMException('Aborted', 'AbortError')),
+            );
+          }),
+      ),
+    );
+
+    const request = expect(searchProfessor('Rick Mercer')).rejects.toThrow(/timed out/i);
+    await vi.advanceTimersByTimeAsync(RMP_REQUEST_TIMEOUT_MS);
+    await request;
   });
 });

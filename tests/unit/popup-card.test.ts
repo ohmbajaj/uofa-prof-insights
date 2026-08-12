@@ -146,7 +146,7 @@ describe('UPICard', () => {
 });
 
 describe('UPICard refresh', () => {
-  it('emits upi-card-refresh with the professor', () => {
+  it('emits upi-card-refresh without exposing professor data', () => {
     const card = mount();
     const prof = makeProfessor({ name: 'Richard Mercer' });
     card.data = prof;
@@ -157,7 +157,8 @@ describe('UPICard refresh', () => {
     });
     (card.shadowRoot?.querySelector('.refresh') as HTMLButtonElement).click();
 
-    expect(detail).toBe(prof);
+    expect(detail).toBeNull();
+    expect(card.data).toBe(prof);
   });
 
   it('shows a pending state and disables the button while refreshing', () => {

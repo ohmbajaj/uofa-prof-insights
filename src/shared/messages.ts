@@ -1,4 +1,10 @@
-import type { ExtensionSettings, ProfessorData, RecentProfessor, UsageStats } from './types';
+import type {
+  ExtensionSettings,
+  ProfessorData,
+  RecentProfessor,
+  RecentProfessorInput,
+  UsageStats,
+} from './types';
 
 // Content Script / Popup -> Service Worker
 export type OutgoingMessage =
@@ -10,7 +16,7 @@ export type OutgoingMessage =
   | { type: 'GET_SETTINGS' }
   | { type: 'SAVE_SETTINGS'; settings: Partial<ExtensionSettings> }
   | { type: 'GET_USAGE' }
-  | { type: 'RECORD_VIEW'; data: ProfessorData }
+  | { type: 'RECORD_VIEW'; data: RecentProfessorInput }
   | { type: 'BADGES_SHOWN'; count: number }
   | { type: 'CLEAR_USAGE' };
 

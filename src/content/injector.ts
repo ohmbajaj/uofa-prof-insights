@@ -1,5 +1,4 @@
 import { BADGE_CLICK_EVENT, UPIBadge } from './components/Badge';
-import type { BadgeData } from './components/Badge';
 import { closeCard, closeCardIfOrphaned, openCardFor } from './card-controller';
 import type { DetectedProfessor } from './detector';
 
@@ -36,20 +35,19 @@ export function injectBadges(profs: DetectedProfessor[]): InjectedBadge[] {
     const { element, name } = professor;
 
     // This exact name was already handled in an earlier detection pass.
-    if (badgesFor(element).some((b) => b.dataset.upiName === name)) continue;
+    if (badgesFor(element).some((b) => b.professorName === name)) continue;
 
-    const badge = new UPIBadge(element.ownerDocument);
-    badge.dataset.upiName = name;
+    const badge = new UPIBadge(element.ownerDocument, name);
     badge.data = 'loading';
 
-    badge.addEventListener(BADGE_CLICK_EVENT, (event) => {
-      const detail = (event as CustomEvent<BadgeData>).detail;
-      console.info(`[UPI] badge clicked for ${name}:`, detail);
+    badge.addEventListener(BADGE_CLICK_EVENT, () => {
+      const data = badge.data;
+      console.info(`[UPI] badge clicked for ${name}:`, data);
 
       // Only a resolved professor has anything to show. Loading, error and
       // "no match" states stay as the badge alone.
-      if (detail && detail !== 'loading' && detail !== 'error') {
-        openCardFor(badge.el, detail, professor.courseCode ?? null);
+      if (data && data !== 'loading' && data !== 'error') {
+        openCardFor(badge.el, data, professor.courseCode ?? null);
       }
     });
 

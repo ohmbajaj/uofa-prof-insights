@@ -109,7 +109,7 @@ describe('injectBadges', () => {
     expect(document.querySelector('.instructor')?.querySelector(BADGE_TAG)).not.toBeNull();
   });
 
-  it('emits upi-badge-click carrying the resolved data', () => {
+  it('emits upi-badge-click without exposing the resolved data', () => {
     document.body.innerHTML = CLASSIC;
     const added = injectBadges(detectProfessors(document));
     const prof = makeProfessor({ name: 'Richard Mercer' });
@@ -121,7 +121,8 @@ describe('injectBadges', () => {
     });
     added[0]!.badge.click();
 
-    expect(detail).toBe(prof);
+    expect(detail).toBeNull();
+    expect(added[0]!.badge.data).toBe(prof);
   });
 
   it('reports the professor alongside each badge it created', () => {

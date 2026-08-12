@@ -48,6 +48,21 @@ describe('cache get/set', () => {
     await chrome.storage.local.set({ [CACHE_STORAGE_KEY]: 'not-an-object' });
     await expect(cache.get('uofa:anyone')).resolves.toBeNull();
   });
+
+  it('drops a cache entry containing an unsafe professor URL', async () => {
+    await chrome.storage.local.set({
+      [CACHE_STORAGE_KEY]: {
+        'uofa:poisoned': {
+          key: 'uofa:poisoned',
+          data: makeProfessor({ rmpUrl: 'https://attacker.example/phish' }),
+          expiresAt: Date.now() + DAY,
+          version: 2,
+        },
+      },
+    });
+
+    await expect(cache.get('uofa:poisoned')).resolves.toBeNull();
+  });
 });
 
 describe('cache expiry', () => {

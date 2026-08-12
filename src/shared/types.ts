@@ -140,6 +140,9 @@ export interface RecentProfessor {
   viewedAt: number;
 }
 
+/** Minimal, validated data accepted when recording a recently viewed professor. */
+export type RecentProfessorInput = Omit<RecentProfessor, 'viewedAt'>;
+
 /**
  * What the content script can see on a page, for troubleshooting.
  *

@@ -1,15 +1,15 @@
 import { DEFAULT_SETTINGS } from '@shared/constants';
 import { sendMessage } from '@shared/messaging';
-import type { ExtensionSettings, ProfessorData } from '@shared/types';
+import type { ExtensionSettings, ProfessorData, RecentProfessorInput } from '@shared/types';
 import { startDetector } from './detector';
 import type { DetectedProfessor } from './detector';
 import { injectBadges } from './injector';
-import { closeCard, updateOpenCard } from './card-controller';
+import { closeCard, getOpenCard, updateOpenCard } from './card-controller';
 import { syncFilterBar } from './filter-controller';
 import { CARD_REFRESH_EVENT } from './components/PopupCard';
 import { collectDiagnostics } from './diagnostics';
 import { BADGE_CLICK_EVENT, badgeFromElement, badgesIn } from './components/Badge';
-import type { BadgeData, UPIBadge } from './components/Badge';
+import type { UPIBadge } from './components/Badge';
 
 console.log('[UPI] Content script loaded on UAccess');
 
@@ -59,7 +59,7 @@ function refreshRanks(): void {
   const positions = new Map(rated.map((entry, index) => [entry.name, index + 1]));
 
   for (const badge of badgesIn(document)) {
-    const name = badge.dataset.upiName;
+    const name = badge.professorName;
     const rank = name ? positions.get(name) : undefined;
     badge.rank = rank === undefined ? null : { rank, total };
   }
@@ -128,12 +128,12 @@ async function resolveBadge(
 /**
  * Finds the live badge for a professor, if one is still on the page.
  *
- * Compares `dataset` rather than building an attribute selector: names carry
- * apostrophes ("Sean O'Brien"), and this sidesteps selector escaping entirely.
+ * Compares the wrapper's private association rather than a page-controlled
+ * DOM attribute. Names also carry apostrophes, so this avoids selector escaping.
  */
 function badgeFor(name: string): UPIBadge | null {
   for (const badge of badgesIn(document)) {
-    if (badge.dataset.upiName === name) return badge;
+    if (badge.professorName === name) return badge;
   }
   return null;
 }
@@ -146,26 +146,36 @@ function badgeFor(name: string): UPIBadge | null {
  * never cached and a plain lookup would just replay the same failure.
  */
 function onBadgeClick(event: Event): void {
-  const detail = (event as CustomEvent<BadgeData>).detail;
+  const badge = badgeFromElement(event.target as Element | null);
+  if (!badge) return;
+  const data = badge.data;
 
   // Opening a card counts as viewing a professor. Recorded locally only.
-  if (detail && detail !== 'loading' && detail !== 'error') {
-    void sendMessage({ type: 'RECORD_VIEW', data: detail }, 'USAGE').catch(() => {
+  if (data && data !== 'loading' && data !== 'error') {
+    const recent: RecentProfessorInput = {
+      name: data.name,
+      department: data.department,
+      overallRating: data.overallRating,
+      numRatings: data.numRatings,
+      rmpUrl: data.rmpUrl,
+    };
+    void sendMessage({ type: 'RECORD_VIEW', data: recent }, 'USAGE').catch(() => {
       // A stats failure must never disturb the page.
     });
     return;
   }
 
-  if (detail !== 'error') return;
+  if (data !== 'error') return;
 
-  const badge = badgeFromElement(event.target as Element | null);
-  const name = badge?.dataset.upiName;
-  if (badge && name) void resolveBadge(badge, name, true);
+  const name = badge.professorName;
+  if (name) void resolveBadge(badge, name, true);
 }
 
 /** Refresh requested from the detail card's footer. */
 function onCardRefresh(event: Event): void {
-  const data = (event as CustomEvent<ProfessorData>).detail;
+  const card = getOpenCard();
+  if (!card || event.target !== card.el || !card.data) return;
+  const data = card.data;
   const badge = badgeFor(data.name);
 
   if (!badge) {

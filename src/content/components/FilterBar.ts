@@ -151,8 +151,7 @@ export class UPIFilterBar {
 
   #emit(): void {
     this.el.dispatchEvent(
-      new CustomEvent<FilterState>(FILTER_CHANGE_EVENT, {
-        detail: this.#state,
+      new CustomEvent<void>(FILTER_CHANGE_EVENT, {
         bubbles: true,
         composed: true,
       }),

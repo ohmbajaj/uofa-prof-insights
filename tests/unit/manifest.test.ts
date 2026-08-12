@@ -49,6 +49,12 @@ describe('manifest scope', () => {
   });
 
   it('grants host access to RateMyProfessors for the service worker fetch', () => {
-    expect(manifest.host_permissions).toContain('https://www.ratemyprofessors.com/*');
+    expect(manifest.host_permissions).toEqual(['https://www.ratemyprofessors.com/*']);
+  });
+
+  it('uses a restrictive extension-page CSP', () => {
+    expect(manifest.content_security_policy.extension_pages).toContain("script-src 'self'");
+    expect(manifest.content_security_policy.extension_pages).toContain("object-src 'none'");
+    expect(manifest.content_security_policy.extension_pages).not.toContain('unsafe-eval');
   });
 });
