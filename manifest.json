@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "UofA Prof Insights",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "View Rate My Professors ratings while browsing classes in UAccess.",
   "permissions": ["storage"],
   "host_permissions": ["https://www.ratemyprofessors.com/*"],
@@ -26,16 +26,6 @@
     }
   ],
   "action": {
-    "default_popup": "src/popup/index.html",
-    "default_icon": {
-      "16": "src/assets/icon-16.png",
-      "48": "src/assets/icon-48.png",
-      "128": "src/assets/icon-128.png"
-    }
-  },
-  "icons": {
-    "16": "src/assets/icon-16.png",
-    "48": "src/assets/icon-48.png",
-    "128": "src/assets/icon-128.png"
+    "default_popup": "src/popup/index.html"
   }
 }
