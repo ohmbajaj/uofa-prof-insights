@@ -6,10 +6,14 @@ coding experience.
 
 ## 1. Download the ready-to-use extension
 
-[Download `uofa-prof-insights.zip`](downloads/uofa-prof-insights.zip?raw=1),
+[Download `uofa-prof-insights.zip`](https://github.com/ohmbajaj/uofa-prof-insights/releases/latest/download/uofa-prof-insights.zip),
 then extract all of its files. The extracted folder should contain
 `manifest.json`. This ZIP already contains the complete built extension, so you
 do not need Node.js, npm, or programming experience.
+
+If the direct download does not start, open the [latest GitHub Release](https://github.com/ohmbajaj/uofa-prof-insights/releases/latest)
+and select `uofa-prof-insights.zip` under **Assets**. Because this repository is
+private, GitHub will require an account with repository access.
 
 Keep this folder in a permanent location such as Documents. Chrome loads the
 extension from that location each time it starts, so moving or deleting the

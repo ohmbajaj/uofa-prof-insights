@@ -1,5 +1,5 @@
 /**
- * Zips `dist/` into a versioned local release and a stable download artifact.
+ * Zips `dist/` into versioned and stable local release artifacts.
  *
  * Writes the archive by hand (stored, no compression) so packaging needs no
  * dependencies. Chrome accepts stored entries, and the payload is ~200 KB.
@@ -15,7 +15,6 @@ import { crc32 } from 'node:zlib';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(ROOT, 'dist');
 const RELEASE = join(ROOT, 'release');
-const DOWNLOADS = join(ROOT, 'downloads');
 
 if (!existsSync(DIST)) {
   console.error('dist/ not found. Run `npm run build` first.');
@@ -136,13 +135,12 @@ if (files.length === 0) {
 assertNoReservedNames(files);
 
 mkdirSync(RELEASE, { recursive: true });
-mkdirSync(DOWNLOADS, { recursive: true });
 const outFile = join(RELEASE, `${pkg.name}-${manifest.version}.zip`);
-const downloadFile = join(DOWNLOADS, `${pkg.name}.zip`);
+const downloadFile = join(RELEASE, `${pkg.name}.zip`);
 const zip = await buildZip(files);
 writeFileSync(outFile, zip);
 writeFileSync(downloadFile, zip);
 
 console.log(`packaged ${files.length} files -> ${relative(ROOT, outFile)}`);
-console.log(`published ready-to-install copy -> ${relative(ROOT, downloadFile)}`);
+console.log(`stable release copy -> ${relative(ROOT, downloadFile)}`);
 console.log(`${(zip.length / 1024).toFixed(1)} KB`);
