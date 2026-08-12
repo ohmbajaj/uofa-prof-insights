@@ -3,13 +3,14 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # A same-repository PR emits both push and pull_request events. Grouping by
+  # the head commit keeps one authoritative run without wasting runner time.
+  group: ci-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: true
 
 jobs:
