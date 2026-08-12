@@ -126,7 +126,7 @@ const PAGE = `<!doctype html>
                   <div class="line"><i class="ico"></i>Weaver Sci-Engr Lbry, Rm 200SW</div>
                 </div>
                 <div class="col">
-                  <div class="line"><i class="ico"></i>Amy Graham</div>
+                  <div class="line"><i class="ico"></i>C. Douglas Haessig</div>
                   <div class="line"><i class="ico"></i>8/24/26 - 12/9/26</div>
                 </div>
               </div>
@@ -472,7 +472,7 @@ const checks = [
   ['every badge has a shadow root', report.badges > 0 && report.upgraded === report.badges],
   ['badges resolved against the live API', report.resolved === report.badges && report.badges > 0],
   /*
-   * Amy Graham from class search and Ratchaneekorn Thamvichai from class
+   * Douglas Haessig from class search and Ratchaneekorn Thamvichai from class
    * schedule, one from each layout. The third name the generic detector finds,
    * Na Liu, has no RateMyProfessors profile, and a speculative name that
    * matches nobody is withdrawn rather than left printing "N/A" on the page.
@@ -486,7 +486,7 @@ const checks = [
    * wide, with no shadow root, so clicking a badge did nothing at all.
    */
   ['clicking a badge opens the detail card', report.card.shadow && report.card.width > 0],
-  ['the card shows the professor it was opened for', report.cardText.includes('Amy Graham')],
+  ['the card shows the professor it was opened for', report.cardText.includes('Douglas Haessig')],
 
   ['the extension did not reflow the page', report.layout.bodyPaddingRight === '(none)'],
   ['the extension did not make the page scroll sideways', !report.layout.horizontalOverflow],

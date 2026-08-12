@@ -1,5 +1,5 @@
 import { NON_INSTRUCTOR_NAMES } from '@shared/constants';
-import { parseInstructorField } from '@shared/utils';
+import { normalizeNaturalNameForRMP, parseInstructorField } from '@shared/utils';
 import type { DetectedProfessor } from './detector';
 
 /**
@@ -108,7 +108,13 @@ function looksLikePerson(text: string): boolean {
   if (/\d/.test(trimmed)) return false;
   if (NON_INSTRUCTOR_NAMES.has(trimmed.toLowerCase())) return false;
   if (isInterfaceText(trimmed)) return false;
-  return PERSON_NAME.test(trimmed);
+  if (PERSON_NAME.test(trimmed)) return true;
+
+  // Responsive UAccess can lead with a formal initial: "C. Douglas Haessig".
+  // The established expression intentionally rejects punctuation, so handle
+  // this registrar-specific shape explicitly without widening every candidate.
+  const normalized = normalizeNaturalNameForRMP(trimmed);
+  return normalized !== trimmed && PERSON_NAME.test(normalized);
 }
 
 /** True when some ancestor within reach also mentions a course code. */
@@ -174,7 +180,8 @@ export function detectProfessorsGeneric(doc: Document): DetectedProfessor[] {
     claimed.add(element);
     const courseCode = courseCodeNear(element);
 
-    for (const name of names) {
+    for (const rawName of names) {
+      const name = normalizeNaturalNameForRMP(rawName);
       found.push({
         element,
         name,
